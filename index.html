@@ -1195,6 +1195,115 @@ function siapkanHalamanLaporan(){
     selectLaporan.innerHTML = selectFilter.innerHTML;
 }
 
+// Bangun kotak daftar santri yang belum melakukan absensi sama sekali
+function buatBoxBelumAbsen(daftarBelum, totalSantri){
+    if(daftarBelum.length === 0){
+        return `
+        <div style="background:#dff5e8; color:#0e6231; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
+            ✅ Semua santri (${totalSantri}) sudah melakukan/tercatat absensi.
+        </div>`;
+    }
+
+    const daftarNama = daftarBelum.map(s => `${s.nama} <span style="opacity:.7;">(${s.kelas})</span>`).join(", ");
+
+    return `
+    <div style="background:#ffe1e1; color:#a00000; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
+        <strong>⚠️ Belum Melakukan Absensi (${daftarBelum.length} dari ${totalSantri} santri):</strong>
+        <div style="margin-top:6px; line-height:1.6;">${daftarNama}</div>
+    </div>`;
+}
+
+// Cari guru yang seharusnya mengajar (sesuai JADWAL_DATA) pada tanggal terpilih,
+// tapi belum ada satupun data absensi tersimpan untuk kelas & jam tersebut.
+function cariGuruBelumAbsen(daftarSantriLaporan, dataAbsensiHarian, tglTerpilih){
+    // Kelompokkan santri per kelas
+    const santriPerKelas = {};
+    daftarSantriLaporan.forEach(s => {
+        if(!s.kelas) return;
+        if(!santriPerKelas[s.kelas]) santriPerKelas[s.kelas] = [];
+        santriPerKelas[s.kelas].push(s);
+    });
+
+    const namaHari = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const hari = namaHari[new Date(tglTerpilih + 'T00:00:00').getDay()];
+
+    const hasil = [];
+
+    if(hari === 'Jumat' || hari === 'Ahad'){
+        return { hari, tidakAdaJadwal: true, daftar: hasil };
+    }
+
+    Object.keys(santriPerKelas).sort().forEach(kelasNama => {
+        const kunciKelas = normalisasiKunciKelas(kelasNama);
+        const jadwalKelas = kunciKelas ? JADWAL_DATA[kunciKelas] : null;
+        if(!jadwalKelas) return; // data jadwal kelas ini belum ada
+
+        const idSantriKelas = santriPerKelas[kelasNama].map(s => s.id);
+
+        for(let jam = 1; jam <= 8; jam++){
+            const entri = jadwalKelas.find(e => e.jp === `JP ${jam}`);
+            if(!entri || !entri.pelajaran) continue;
+
+            const slot = entri.pelajaran[hari];
+            if(!slot || !slot.mapel || !slot.guru) continue; // tanpa guru bernama (mis. Apel Pagi) dilewati
+
+            const sudahAdaAbsen = dataAbsensiHarian.some(a =>
+                String(a.jam) === String(jam) && idSantriKelas.includes(a.santriId)
+            );
+
+            if(!sudahAdaAbsen){
+                hasil.push({ kelas: kelasNama, jam, mapel: slot.mapel, guru: slot.guru });
+            }
+        }
+    });
+
+    return { hari, tidakAdaJadwal: false, daftar: hasil };
+}
+
+function buatBoxGuruBelumAbsen(infoGuru){
+    if(infoGuru.tidakAdaJadwal){
+        return `
+        <div style="background:#f5f7f6; color:#68736f; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
+            📚 Tidak ada jadwal pelajaran pada hari ${infoGuru.hari}, sehingga tidak ada guru yang perlu absen.
+        </div>`;
+    }
+
+    if(infoGuru.daftar.length === 0){
+        return `
+        <div style="background:#dff5e8; color:#0e6231; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
+            ✅ Semua guru (hari ${infoGuru.hari}) sudah melakukan absensi di jamnya masing-masing.
+        </div>`;
+    }
+
+    const baris = infoGuru.daftar.map(g => `
+        <tr>
+            <td style="padding:6px; border:1px solid #ddd; text-align:left;">${g.kelas}</td>
+            <td style="padding:6px; border:1px solid #ddd;">Jam ke-${g.jam}</td>
+            <td style="padding:6px; border:1px solid #ddd; text-align:left;">${g.mapel}</td>
+            <td style="padding:6px; border:1px solid #ddd; text-align:left; font-weight:bold;">${g.guru}</td>
+        </tr>`).join("");
+
+    return `
+    <div style="background:white; border-radius:14px; padding:14px; margin-top:12px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
+        <div style="font-weight:bold; color:#a00000; margin-bottom:8px; font-size:13px;">
+            👨‍🏫 Guru Belum Melakukan Absensi — hari ${infoGuru.hari} (${infoGuru.daftar.length} sesi)
+        </div>
+        <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
+            <thead>
+                <tr style="background:#a00000; color:white;">
+                    <th style="padding:6px; border:1px solid #ddd; text-align:left;">Kelas</th>
+                    <th style="padding:6px; border:1px solid #ddd;">Jam</th>
+                    <th style="padding:6px; border:1px solid #ddd; text-align:left;">Mapel</th>
+                    <th style="padding:6px; border:1px solid #ddd; text-align:left;">Guru</th>
+                </tr>
+            </thead>
+            <tbody>${baris}</tbody>
+        </table>
+        </div>
+    </div>`;
+}
+
 window.tampilkanHasilLaporan = async function(){
     const area = document.getElementById("areaHasilLaporan");
     const jenis = document.getElementById("jenisLaporanNav").value;
@@ -1369,6 +1478,15 @@ window.tampilkanHasilLaporan = async function(){
             <div style="font-size:11px; color:#68736f; margin-top:8px;">
                 <strong>Keterangan:</strong> H = Hadir, I = Izin, S = Sakit, A = Alpha
             </div>`;
+
+            // SANTRI YANG BELUM DIABSEN SAMA SEKALI PADA TANGGAL INI
+            const belumAbsenHarian = daftarSantri.filter(s => !dataAbsensi.some(a => a.santriId === s.id));
+            html += buatBoxBelumAbsen(belumAbsenHarian, daftarSantri.length);
+
+            // GURU YANG BELUM MELAKUKAN ABSENSI SESUAI JADWAL PADA TANGGAL INI
+            const infoGuru = cariGuruBelumAbsen(daftarSantri, dataAbsensi, tglTerpilih);
+            html += buatBoxGuruBelumAbsen(infoGuru);
+
             area.innerHTML = html;
 
         } else {
@@ -1404,6 +1522,11 @@ window.tampilkanHasilLaporan = async function(){
             });
 
             html += `</tbody></table></div>`;
+
+            // SANTRI YANG BELUM PERNAH DIABSEN SAMA SEKALI SELAMA PERIODE INI
+            const belumAbsenPeriode = daftarSantri.filter(s => !dataAbsensi.some(a => a.santriId === s.id));
+            html += buatBoxBelumAbsen(belumAbsenPeriode, daftarSantri.length);
+
             area.innerHTML = html;
         }
 
