@@ -1336,58 +1336,130 @@ window.tampilkanHasilLaporan = async function(){
                 return;
             }
 
+            // Ambil seluruh data nilai untuk mapel yang dipilih.
+            // Setiap santri disimpan dalam satu dokumen dengan field tugas_1,
+            // tugas_2, ..., uh_1, uh_2, ..., uts dan uas.
             const q = query(collection(db, "nilai"));
-            const snapshot = await getDocs(q);
-            let dataNilai = [];
-            snapshot.forEach(doc => dataNilai.push(doc.data()));
+            const snapshotNilai = await getDocs(q);
+            const dataNilai = [];
+
+            snapshotNilai.forEach(docSnap => {
+                const d = docSnap.data();
+                if(d.mapel === mapelTerpilih){
+                    dataNilai.push(d);
+                }
+            });
+
+            // Tentukan jumlah kolom Tugas dan UH yang benar-benar sudah digunakan.
+            let maxTugas = 0;
+            let maxUH = 0;
+
+            dataNilai.forEach(rec => {
+                Object.keys(rec).forEach(key => {
+                    let m = key.match(/^tugas_(\\d+)$/);
+                    if(m && typeof rec[key] === "number"){
+                        maxTugas = Math.max(maxTugas, Number(m[1]));
+                    }
+
+                    m = key.match(/^uh_(\\d+)$/);
+                    if(m && typeof rec[key] === "number"){
+                        maxUH = Math.max(maxUH, Number(m[1]));
+                    }
+                });
+            });
+
+            // Buat lookup agar data setiap santri langsung ditemukan.
+            const nilaiBySantri = {};
+            dataNilai.forEach(rec => {
+                nilaiBySantri[rec.santriId] = rec;
+            });
+
+            // Header dinamis: Tugas 1, Tugas 2, ... UH 1, UH 2, ...
+            let headerNilai = `<th style="padding:6px; border:1px solid #ddd; text-align:left; position:sticky; left:0; background:#075E54; z-index:2;">Nama Santri</th>`;
+
+            for(let i = 1; i <= maxTugas; i++){
+                headerNilai += `<th style="padding:6px; border:1px solid #ddd;">Tugas ${i}</th>`;
+            }
+
+            for(let i = 1; i <= maxUH; i++){
+                headerNilai += `<th style="padding:6px; border:1px solid #ddd;">UH ${i}</th>`;
+            }
+
+            headerNilai += `
+                <th style="padding:6px; border:1px solid #ddd;">Rata Tugas</th>
+                <th style="padding:6px; border:1px solid #ddd;">Rata UH</th>
+                <th style="padding:6px; border:1px solid #ddd;">UTS</th>
+                <th style="padding:6px; border:1px solid #ddd;">UAS</th>
+                <th style="padding:6px; border:1px solid #ddd; background:#0e6231;">Nilai Akhir</th>`;
 
             let html = `
             <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
+                <div style="font-size:12px; color:#68736f; margin:0 0 10px 2px;">
+                    Rekap nilai: <strong>${mapelTerpilih}</strong>
+                    ${maxTugas > 0 ? ` • ${maxTugas} Tugas` : ""}
+                    ${maxUH > 0 ? ` • ${maxUH} Ulangan Harian` : ""}
+                </div>
                 <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
                     <thead>
                         <tr style="background:#075E54; color:white;">
-                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                            <th style="padding:6px; border:1px solid #ddd;">Rata Tugas</th>
-                            <th style="padding:6px; border:1px solid #ddd;">Rata UH</th>
-                            <th style="padding:6px; border:1px solid #ddd;">UTS</th>
-                            <th style="padding:6px; border:1px solid #ddd;">UAS</th>
-                            <th style="padding:6px; border:1px solid #ddd; background:#0e6231;">Nilai Akhir</th>
+                            ${headerNilai}
                         </tr>
                     </thead>
                     <tbody>`;
 
             daftarSantri.forEach(s => {
-                const rec = dataNilai.find(n => n.santriId === s.id && n.mapel === mapelTerpilih);
-                
-                let avgTugas = "-", avgUH = "-", uts = "-", uas = "-";
+                const rec = nilaiBySantri[s.id] || {};
 
-                if(rec){
-                    const listTugas = Object.keys(rec)
-                        .filter(k => k.startsWith("tugas_") && typeof rec[k] === "number")
-                        .map(k => rec[k]);
-                    if(listTugas.length > 0){
-                        avgTugas = Math.round(listTugas.reduce((a,b)=>a+b, 0) / listTugas.length);
+                let listTugas = [];
+                let listUH = [];
+
+                for(let i = 1; i <= maxTugas; i++){
+                    if(typeof rec[`tugas_${i}`] === "number"){
+                        listTugas.push(rec[`tugas_${i}`]);
                     }
-
-                    const listUH = Object.keys(rec)
-                        .filter(k => k.startsWith("uh_") && typeof rec[k] === "number")
-                        .map(k => rec[k]);
-                    if(listUH.length > 0){
-                        avgUH = Math.round(listUH.reduce((a,b)=>a+b, 0) / listUH.length);
-                    }
-
-                    uts = typeof rec.uts === "number" ? rec.uts : "-";
-                    uas = typeof rec.uas === "number" ? rec.uas : "-";
                 }
 
-                const komponenAkhir = [avgTugas, avgUH, uts, uas].filter(v => typeof v === "number");
-                const nilaiAkhir = komponenAkhir.length > 0 
-                    ? Math.round(komponenAkhir.reduce((a, b) => a + b, 0) / komponenAkhir.length) 
+                for(let i = 1; i <= maxUH; i++){
+                    if(typeof rec[`uh_${i}`] === "number"){
+                        listUH.push(rec[`uh_${i}`]);
+                    }
+                }
+
+                const avgTugas = listTugas.length > 0
+                    ? Math.round(listTugas.reduce((a,b) => a + b, 0) / listTugas.length)
                     : "-";
+
+                const avgUH = listUH.length > 0
+                    ? Math.round(listUH.reduce((a,b) => a + b, 0) / listUH.length)
+                    : "-";
+
+                const uts = typeof rec.uts === "number" ? rec.uts : "-";
+                const uas = typeof rec.uas === "number" ? rec.uas : "-";
+
+                const komponenAkhir = [avgTugas, avgUH, uts, uas]
+                    .filter(v => typeof v === "number");
+
+                const nilaiAkhir = komponenAkhir.length > 0
+                    ? Math.round(komponenAkhir.reduce((a,b) => a + b, 0) / komponenAkhir.length)
+                    : "-";
+
+                let cellsTugas = "";
+                for(let i = 1; i <= maxTugas; i++){
+                    const value = typeof rec[`tugas_${i}`] === "number" ? rec[`tugas_${i}`] : "-";
+                    cellsTugas += `<td style="padding:6px; border:1px solid #ddd;">${value}</td>`;
+                }
+
+                let cellsUH = "";
+                for(let i = 1; i <= maxUH; i++){
+                    const value = typeof rec[`uh_${i}`] === "number" ? rec[`uh_${i}`] : "-";
+                    cellsUH += `<td style="padding:6px; border:1px solid #ddd;">${value}</td>`;
+                }
 
                 html += `
                 <tr>
-                    <td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold;">${s.nama}</td>
+                    <td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold; position:sticky; left:0; background:white; z-index:1;">${s.nama}</td>
+                    ${cellsTugas}
+                    ${cellsUH}
                     <td style="padding:6px; border:1px solid #ddd;">${avgTugas}</td>
                     <td style="padding:6px; border:1px solid #ddd;">${avgUH}</td>
                     <td style="padding:6px; border:1px solid #ddd;">${uts}</td>
