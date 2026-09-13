@@ -343,7 +343,8 @@ body{
     .student-name{ font-size:13px; }
     .status{ width:29px; height:29px; font-size:12px; }
 }
-    /* Container Scroll Horizontal untuk Jam Pelajaran */
+
+/* Container Scroll Horizontal untuk Jam Pelajaran */
 .jam-container {
     display: flex;
     gap: 8px;
@@ -351,11 +352,11 @@ body{
     padding: 6px 2px;
     margin-top: 10px;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Sembunyikan scrollbar di Firefox */
+    scrollbar-width: none;
 }
 
 .jam-container::-webkit-scrollbar {
-    display: none; /* Sembunyikan scrollbar di Chrome/Safari */
+    display: none;
 }
 
 .btn-jam {
@@ -375,6 +376,11 @@ body{
     background: #075E54;
     color: white;
     box-shadow: 0 3px 8px rgba(7, 94, 84, 0.3);
+}
+
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 </style>
 </head>
@@ -425,32 +431,32 @@ body{
                 <option value="">Semua Kelas</option>
             </select>
 
-           <!-- Tombol Jam Pelajaran Horizontal -->
-<div class="jam-container" id="containerJam">
-    <button type="button" class="btn-jam" onclick="pilihJam('10', this)">Subuh</button>
-    <button type="button" class="btn-jam active" onclick="pilihJam('1', this)">Jam 1</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('2', this)">Jam 2</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('3', this)">Jam 3</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('4', this)">Jam 4</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('5', this)">Jam 5</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('6', this)">Jam 6</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('7', this)">Jam 7</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('8', this)">Jam 8</button>
-    <button type="button" class="btn-jam" onclick="pilihJam('9', this)">Jam 9</button>
-</div>
+            <!-- Tombol Jam Pelajaran Horizontal -->
+            <div class="jam-container" id="containerJam">
+                <button type="button" class="btn-jam" onclick="pilihJam('10', this)">Subuh</button>
+                <button type="button" class="btn-jam active" onclick="pilihJam('1', this)">Jam 1</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('2', this)">Jam 2</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('3', this)">Jam 3</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('4', this)">Jam 4</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('5', this)">Jam 5</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('6', this)">Jam 6</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('7', this)">Jam 7</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('8', this)">Jam 8</button>
+                <button type="button" class="btn-jam" onclick="pilihJam('9', this)">Jam 9</button>
+            </div>
 
             <div id="infoJadwal" style="margin-top:10px; background:white; border-radius:14px; padding:12px 16px; font-size:13px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
                 📚 Pilih kelas untuk melihat mapel & guru jam ini.
             </div>
 
             <div style="display:flex; gap:8px; margin-top:10px;">
-    <button type="button" class="btn-primary" onclick="hadirkanSemuaSantri()" style="margin-top:0; background:#075E54; flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
-        ⚡ Hadirkan Semua
-    </button>
-    <button type="button" class="btn-primary" onclick="resetSemuaAbsensiSantri()" style="margin-top:0; background:#a00000; flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
-        🗑️ Reset Absensi
-    </button>
-</div>
+                <button type="button" class="btn-primary" onclick="hadirkanSemuaSantri()" style="margin-top:0; background:#075E54; flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    ⚡ Hadirkan Semua
+                </button>
+                <button type="button" class="btn-primary" onclick="resetSemuaAbsensiSantri()" style="margin-top:0; background:#a00000; flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    🗑️ Reset Absensi
+                </button>
+            </div>
             
             <div id="studentList" style="margin-top: 10px;">
                 <div class="loading">Menghubungkan ke Firebase...</div>
@@ -535,6 +541,7 @@ body{
                         <option value="mingguan">Absensi Mingguan</option>
                         <option value="bulanan">Absensi Bulanan</option>
                         <option value="nilai">Rekap Nilai Per Mapel</option>
+                        <option value="nilai_kelas">Rekap Nilai Per Kelas (Semua Mapel)</option>
                     </select>
                 </div>
 
@@ -730,7 +737,6 @@ async function ambilDataSantri(){
         santri = [];
     } else {
         santri = snapshot.docs.map(item => ({ id: item.id, status: item.data().status || "aktif", ...item.data() }));
-        // Mengurutkan data santri secara keseluruhan berdasarkan nama A-Z
         santri.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
     }
 }
@@ -753,11 +759,6 @@ async function ambilAbsensi(){
     }
 }
 
-// ==========================================
-// JADWAL PELAJARAN (mapel & guru otomatis)
-// ==========================================
-
-// Ubah nama kelas bebas (mis. "7 Azhari Pa") jadi kunci JADWAL_DATA (mis. "7 Pa")
 function normalisasiKunciKelas(kelasStr){
     if(!kelasStr) return null;
     const angka = kelasStr.match(/\d+/);
@@ -766,7 +767,6 @@ function normalisasiKunciKelas(kelasStr){
     return `${angka[0]} ${paPi[0].charAt(0).toUpperCase()}${paPi[0].charAt(1).toLowerCase()}`;
 }
 
-// Nama hari (Ahad/Jumat tidak ada jadwal mapel)
 function namaHariIni(){
     const namaHari = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     return namaHari[new Date().getDay()];
@@ -854,16 +854,18 @@ function filterSantri(){
         const aktif = s.status !== "nonaktif";
         return cocokNama && cocokKelas && aktif;
     });
-    // PILIH JAM PELAJARAN VIA TOMBOL HORIZONTAL
+
+    hasil.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
+    tampilkanSantri(hasil);
+}
+
 window.pilihJam = async function(nilaiJam, element) {
     jamPelajaran = nilaiJam;
 
-    // Ubah status tombol aktif
     const semuaBtnJam = document.querySelectorAll('.btn-jam');
     semuaBtnJam.forEach(btn => btn.classList.remove('active'));
     element.classList.add('active');
 
-    // Tampilkan loading & muat absensi jam terpilih
     const list = document.getElementById("studentList");
     const labelJam = nilaiJam === '10' ? 'Subuh' : `Jam ke-${nilaiJam}`;
     list.innerHTML = `<div class="loading">Memuat data ${labelJam}...</div>`;
@@ -873,12 +875,6 @@ window.pilihJam = async function(nilaiJam, element) {
     hitungStatistik();
     perbaruiInfoJadwal();
 };
-
-    // Mengurutkan hasil filter berdasarkan nama A-Z
-    hasil.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
-
-    tampilkanSantri(hasil);
-}
 
 function tampilkanSantri(data){
     const list = document.getElementById("studentList");
@@ -920,7 +916,6 @@ function tampilkanKelolaSantri(keyword = ""){
     list.innerHTML = "";
 
     const hasil = santri.filter(s => s.nama.toLowerCase().includes(keyword.toLowerCase().trim()));
-    // Pengurutan nama A-Z
     hasil.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
 
     if(hasil.length === 0){
@@ -1054,7 +1049,6 @@ window.cekTampilKePilihan = function(){
     }
 };
 
-// FUNGSI INPUT NILAI SANTRI (Diurutkan A-Z)
 window.muatDataInputNilai = async function(){
     const kelas = document.getElementById("kelasNilai").value;
     const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
@@ -1077,7 +1071,6 @@ window.muatDataInputNilai = async function(){
         return;
     }
 
-    // Urutkan nama santri secara Alfabetis A-Z
     santriAktif.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
 
     let fieldKey = kat;
@@ -1177,6 +1170,10 @@ window.sesuaikanInputLaporanNav = function(){
         groupTgl.style.display = "none";
         groupBln.style.display = "none";
         groupMapel.style.display = "block";
+    } else if(jenis === "nilai_kelas"){
+        groupTgl.style.display = "none";
+        groupBln.style.display = "none";
+        groupMapel.style.display = "none";
     } else {
         groupTgl.style.display = "block";
         groupBln.style.display = "none";
@@ -1195,931 +1192,239 @@ function siapkanHalamanLaporan(){
     selectLaporan.innerHTML = selectFilter.innerHTML;
 }
 
-// Bangun kotak daftar santri yang belum melakukan absensi sama sekali
-function buatBoxBelumAbsen(daftarBelum, totalSantri){
-    if(daftarBelum.length === 0){
-        return `
-        <div style="background:#dff5e8; color:#0e6231; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
-            ✅ Semua santri (${totalSantri}) sudah melakukan/tercatat absensi.
-        </div>`;
+window.tampilkanHasilLaporan = async function(){
+    const jenis = document.getElementById("jenisLaporanNav").value;
+    const kelas = document.getElementById("kelasLaporanNav").value;
+    const area = document.getElementById("areaHasilLaporan");
+
+    area.innerHTML = `<div class="loading">Memproses data laporan...</div>`;
+
+    if(jenis === "nilai_kelas"){
+        await tampilkanLaporanNilaiPerKelas(kelas, area);
+        return;
     }
 
-    const daftarNama = daftarBelum.map(s => `${s.nama} <span style="opacity:.7;">(${s.kelas})</span>`).join(", ");
-
-    return `
-    <div style="background:#ffe1e1; color:#a00000; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
-        <strong>⚠️ Belum Melakukan Absensi (${daftarBelum.length} dari ${totalSantri} santri):</strong>
-        <div style="margin-top:6px; line-height:1.6;">${daftarNama}</div>
-    </div>`;
-}
-
-// Cari guru yang seharusnya mengajar (sesuai JADWAL_DATA) pada tanggal terpilih,
-// tapi belum ada satupun data absensi tersimpan untuk kelas & jam tersebut.
-function cariGuruBelumAbsen(daftarSantriLaporan, dataAbsensiHarian, tglTerpilih){
-    // Kelompokkan santri per kelas
-    const santriPerKelas = {};
-    daftarSantriLaporan.forEach(s => {
-        if(!s.kelas) return;
-        if(!santriPerKelas[s.kelas]) santriPerKelas[s.kelas] = [];
-        santriPerKelas[s.kelas].push(s);
-    });
-
-    const namaHari = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const hari = namaHari[new Date(tglTerpilih + 'T00:00:00').getDay()];
-
-    const hasil = [];
-
-    if(hari === 'Jumat' || hari === 'Ahad'){
-        return { hari, tidakAdaJadwal: true, daftar: hasil };
-    }
-
-    Object.keys(santriPerKelas).sort().forEach(kelasNama => {
-        const kunciKelas = normalisasiKunciKelas(kelasNama);
-        const jadwalKelas = kunciKelas ? JADWAL_DATA[kunciKelas] : null;
-        if(!jadwalKelas) return; // data jadwal kelas ini belum ada
-
-        const idSantriKelas = santriPerKelas[kelasNama].map(s => s.id);
-
-        for(let jam = 1; jam <= 8; jam++){
-            const entri = jadwalKelas.find(e => e.jp === `JP ${jam}`);
-            if(!entri || !entri.pelajaran) continue;
-
-            const slot = entri.pelajaran[hari];
-            if(!slot || !slot.mapel || !slot.guru) continue; // tanpa guru bernama (mis. Apel Pagi) dilewati
-
-            const sudahAdaAbsen = dataAbsensiHarian.some(a =>
-                String(a.jam) === String(jam) && idSantriKelas.includes(a.santriId)
-            );
-
-            if(!sudahAdaAbsen){
-                hasil.push({ kelas: kelasNama, jam, mapel: slot.mapel, guru: slot.guru });
-            }
+    if(jenis === "nilai"){
+        const mapel = document.getElementById("mapelLaporanNav").value.trim().toLowerCase();
+        if(!mapel){
+            area.innerHTML = `<div class="error">Harap isi nama mata pelajaran terlebih dahulu!</div>`;
+            return;
         }
-    });
-
-    return { hari, tidakAdaJadwal: false, daftar: hasil };
-}
-
-function buatBoxGuruBelumAbsen(infoGuru){
-    if(infoGuru.tidakAdaJadwal){
-        return `
-        <div style="background:#f5f7f6; color:#68736f; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
-            📚 Tidak ada jadwal pelajaran pada hari ${infoGuru.hari}, sehingga tidak ada guru yang perlu absen.
-        </div>`;
+        await tampilkanLaporanNilaiPerMapel(kelas, mapel, area);
+        return;
     }
 
-    if(infoGuru.daftar.length === 0){
-        return `
-        <div style="background:#dff5e8; color:#0e6231; padding:12px 16px; border-radius:14px; margin-top:12px; font-size:12px;">
-            ✅ Semua guru (hari ${infoGuru.hari}) sudah melakukan absensi di jamnya masing-masing.
-        </div>`;
+    area.innerHTML = `<div class="loading">Laporan absensi diproses...</div>`;
+};
+
+// FUNGSI LAPORAN NILAI PER KELAS (SEMUA MAPEL)
+async function tampilkanLaporanNilaiPerKelas(kelasTerpilih, areaElement){
+    if(!kelasTerpilih){
+        areaElement.innerHTML = `<div class="error">Harap pilih kelas terlebih dahulu untuk melihat rekap nilai semua mapel!</div>`;
+        return;
     }
 
-    const baris = infoGuru.daftar.map(g => `
-        <tr>
-            <td style="padding:6px; border:1px solid #ddd; text-align:left;">${g.kelas}</td>
-            <td style="padding:6px; border:1px solid #ddd;">Jam ke-${g.jam}</td>
-            <td style="padding:6px; border:1px solid #ddd; text-align:left;">${g.mapel}</td>
-            <td style="padding:6px; border:1px solid #ddd; text-align:left; font-weight:bold;">${g.guru}</td>
-        </tr>`).join("");
+    const santriKelas = santri.filter(s => s.status !== "nonaktif" && s.kelas === kelasTerpilih);
+    if(santriKelas.length === 0){
+        areaElement.innerHTML = `<div class="error">Tidak ada data santri aktif di kelas ${kelasTerpilih}.</div>`;
+        return;
+    }
 
-    return `
-    <div style="background:white; border-radius:14px; padding:14px; margin-top:12px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-        <div style="font-weight:bold; color:#a00000; margin-bottom:8px; font-size:13px;">
-            👨‍🏫 Guru Belum Melakukan Absensi — hari ${infoGuru.hari} (${infoGuru.daftar.length} sesi)
-        </div>
-        <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-            <thead>
-                <tr style="background:#a00000; color:white;">
-                    <th style="padding:6px; border:1px solid #ddd; text-align:left;">Kelas</th>
-                    <th style="padding:6px; border:1px solid #ddd;">Jam</th>
-                    <th style="padding:6px; border:1px solid #ddd; text-align:left;">Mapel</th>
-                    <th style="padding:6px; border:1px solid #ddd; text-align:left;">Guru</th>
+    santriKelas.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
+
+    try {
+        const q = query(collection(db, "nilai"), where("kelas", "==", kelasTerpilih));
+        const snap = await getDocs(q);
+
+        if(snap.empty){
+            areaElement.innerHTML = `<div class="loading">Belum ada nilai yang terinput untuk kelas ${kelasTerpilih}.</div>`;
+            return;
+        }
+
+        const mapelSet = new Set();
+        const dataNilai = {}; // { santriId: { mapel: rataRataMapel } }
+
+        snap.forEach(d => {
+            const val = d.data();
+            const sId = val.santriId;
+            const mp = val.mapel ? val.mapel.toUpperCase() : "TANPA MAPEL";
+            mapelSet.add(mp);
+
+            let total = 0;
+            let count = 0;
+
+            Object.keys(val).forEach(key => {
+                if(key !== "santriId" && key !== "kelas" && key !== "mapel" && key !== "updatedAt"){
+                    if(val[key] !== null && val[key] !== undefined && !isNaN(val[key])){
+                        total += Number(val[key]);
+                        count++;
+                    }
+                }
+            });
+
+            const rerata = count > 0 ? (total / count) : null;
+
+            if(!dataNilai[sId]) dataNilai[sId] = {};
+            dataNilai[sId][mp] = rerata;
+        });
+
+        const daftarMapel = Array.from(mapelSet).sort();
+
+        if(daftarMapel.length === 0){
+            areaElement.innerHTML = `<div class="loading">Belum ada nilai terinput.</div>`;
+            return;
+        }
+
+        let html = `
+        <div style="background:white; border-radius:14px; padding:15px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
+            <div style="font-weight:bold; font-size:14px; margin-bottom:10px; color:#075E54;">
+                📋 Rekap Nilai Akhir Per Kelas: ${kelasTerpilih}
+            </div>
+            <div class="table-responsive">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap;">
+                    <thead>
+                        <tr style="background:#075E54; color:white; text-align:center;">
+                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">No</th>
+                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>`;
+        
+        daftarMapel.forEach(mp => {
+            html += `<th style="padding:8px; border:1px solid #ddd;">${mp}</th>`;
+        });
+
+        html += `<th style="padding:8px; border:1px solid #ddd; background:#05443d;">Rata-Rata Total</th>
                 </tr>
             </thead>
-            <tbody>${baris}</tbody>
-        </table>
-        </div>
-    </div>`;
+            <tbody>`;
+
+        santriKelas.forEach((s, idx) => {
+            let totalSemuaMapel = 0;
+            let countMapel = 0;
+
+            html += `
+            <tr>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${idx + 1}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; font-weight:bold;">${s.nama}</td>`;
+
+            daftarMapel.forEach(mp => {
+                const nilaiMp = dataNilai[s.id] && dataNilai[s.id][mp] !== undefined ? dataNilai[s.id][mp] : null;
+                if(nilaiMp !== null){
+                    totalSemuaMapel += nilaiMp;
+                    countMapel++;
+                    html += `<td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${nilaiMp.toFixed(1)}</td>`;
+                } else {
+                    html += `<td style="padding:6px 8px; border:1px solid #ddd; text-align:center; color:#aaa;">-</td>`;
+                }
+            });
+
+            const rataRataKeseluruhan = countMapel > 0 ? (totalSemuaMapel / countMapel).toFixed(1) : "-";
+            html += `<td style="padding:6px 8px; border:1px solid #ddd; text-align:center; font-weight:bold; background:#f5f7f6;">${rataRataKeseluruhan}</td>
+            </tr>`;
+        });
+
+        html += `</tbody></table></div></div>`;
+        areaElement.innerHTML = html;
+
+    } catch(err) {
+        areaElement.innerHTML = `<div class="error">Gagal memuat rekap nilai per kelas: ${err.message}</div>`;
+    }
 }
 
-window.tampilkanHasilLaporan = async function(){
-    const area = document.getElementById("areaHasilLaporan");
-    const jenis = document.getElementById("jenisLaporanNav").value;
-    const kelasTerpilihLaporan = document.getElementById("kelasLaporanNav").value;
-    const tglTerpilih = document.getElementById("tglLaporanNav").value;
-    const blnTerpilih = document.getElementById("blnLaporanNav").value;
+async function tampilkanLaporanNilaiPerMapel(kelas, mapel, areaElement){
+    let santriAktif = santri.filter(s => s.status !== "nonaktif");
+    if(kelas){
+        santriAktif = santriAktif.filter(s => s.kelas === kelas);
+    }
 
-    area.innerHTML = `<div class="loading">Memuat rekap data laporan...</div>`;
+    if(santriAktif.length === 0){
+        areaElement.innerHTML = `<div class="error">Data santri tidak ditemukan.</div>`;
+        return;
+    }
+
+    santriAktif.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
 
     try {
-        const santriAktif = santri.filter(s => s.status !== "nonaktif");
-        let daftarSantri = kelasTerpilihLaporan 
-            ? santriAktif.filter(s => s.kelas === kelasTerpilihLaporan)
-            : santriAktif;
-
-        if(daftarSantri.length === 0){
-            area.innerHTML = `<div class="loading">Tidak ada data santri untuk kelas ini.</div>`;
-            return;
-        }
-
-        // Pengurutan daftar santri secara Alfabetis A-Z untuk laporan
-        daftarSantri.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
-
-        if(jenis === "nilai"){
-            const mapelTerpilih = document.getElementById("mapelLaporanNav").value.trim().toLowerCase();
-
-            if(!mapelTerpilih){
-                toast("Isi Mata Pelajaran terlebih dahulu!");
-                area.innerHTML = `<div class="loading">Ketik nama mata pelajaran untuk melihat rekap nilai.</div>`;
-                return;
-            }
-
-            // Ambil seluruh data nilai untuk mapel yang dipilih.
-            // Setiap santri disimpan dalam satu dokumen dengan field tugas_1,
-            // tugas_2, ..., uh_1, uh_2, ..., uts dan uas.
-            const q = query(collection(db, "nilai"));
-            const snapshotNilai = await getDocs(q);
-            const dataNilai = [];
-
-            snapshotNilai.forEach(docSnap => {
-                const d = docSnap.data();
-                if(d.mapel === mapelTerpilih){
-                    dataNilai.push(d);
-                }
-            });
-
-            // Tentukan jumlah kolom Tugas dan UH yang benar-benar sudah digunakan.
-            let maxTugas = 0;
-            let maxUH = 0;
-
-            dataNilai.forEach(rec => {
-                Object.keys(rec).forEach(key => {
-                    let m = key.match(/^tugas_(\d+)$/);
-                    if(m && typeof rec[key] === "number"){
-                        maxTugas = Math.max(maxTugas, Number(m[1]));
-                    }
-
-                    m = key.match(/^uh_(\d+)$/);
-                    if(m && typeof rec[key] === "number"){
-                        maxUH = Math.max(maxUH, Number(m[1]));
-                    }
-                });
-            });
-
-            // Buat lookup agar data setiap santri langsung ditemukan.
-            const nilaiBySantri = {};
-            dataNilai.forEach(rec => {
-                nilaiBySantri[rec.santriId] = rec;
-            });
-
-            // Header dinamis: Tugas 1, Tugas 2, ... UH 1, UH 2, ...
-            let headerNilai = `<th style="padding:6px; border:1px solid #ddd; text-align:left; position:sticky; left:0; background:#075E54; z-index:2;">Nama Santri</th>`;
-
-            for(let i = 1; i <= maxTugas; i++){
-                headerNilai += `<th style="padding:6px; border:1px solid #ddd;">Tugas ${i}</th>`;
-            }
-
-            for(let i = 1; i <= maxUH; i++){
-                headerNilai += `<th style="padding:6px; border:1px solid #ddd;">UH ${i}</th>`;
-            }
-
-            headerNilai += `
-                <th style="padding:6px; border:1px solid #ddd;">Rata Tugas</th>
-                <th style="padding:6px; border:1px solid #ddd;">Rata UH</th>
-                <th style="padding:6px; border:1px solid #ddd;">UTS</th>
-                <th style="padding:6px; border:1px solid #ddd;">UAS</th>
-                <th style="padding:6px; border:1px solid #ddd; background:#0e6231;">Nilai Akhir</th>`;
-
-            let html = `
-            <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-                <div style="font-size:12px; color:#68736f; margin:0 0 10px 2px;">
-                    Rekap nilai: <strong>${mapelTerpilih}</strong>
-                    ${maxTugas > 0 ? ` • ${maxTugas} Tugas` : ""}
-                    ${maxUH > 0 ? ` • ${maxUH} Ulangan Harian` : ""}
-                </div>
-                <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-                    <thead>
-                        <tr style="background:#075E54; color:white;">
-                            ${headerNilai}
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-            daftarSantri.forEach(s => {
-                const rec = nilaiBySantri[s.id] || {};
-
-                let listTugas = [];
-                let listUH = [];
-
-                for(let i = 1; i <= maxTugas; i++){
-                    if(typeof rec[`tugas_${i}`] === "number"){
-                        listTugas.push(rec[`tugas_${i}`]);
-                    }
-                }
-
-                for(let i = 1; i <= maxUH; i++){
-                    if(typeof rec[`uh_${i}`] === "number"){
-                        listUH.push(rec[`uh_${i}`]);
-                    }
-                }
-
-                const avgTugas = listTugas.length > 0
-                    ? Math.round(listTugas.reduce((a,b) => a + b, 0) / listTugas.length)
-                    : "-";
-
-                const avgUH = listUH.length > 0
-                    ? Math.round(listUH.reduce((a,b) => a + b, 0) / listUH.length)
-                    : "-";
-
-                const uts = typeof rec.uts === "number" ? rec.uts : "-";
-                const uas = typeof rec.uas === "number" ? rec.uas : "-";
-
-                const komponenAkhir = [avgTugas, avgUH, uts, uas]
-                    .filter(v => typeof v === "number");
-
-                const nilaiAkhir = komponenAkhir.length > 0
-                    ? Math.round(komponenAkhir.reduce((a,b) => a + b, 0) / komponenAkhir.length)
-                    : "-";
-
-                let cellsTugas = "";
-                for(let i = 1; i <= maxTugas; i++){
-                    const value = typeof rec[`tugas_${i}`] === "number" ? rec[`tugas_${i}`] : "-";
-                    cellsTugas += `<td style="padding:6px; border:1px solid #ddd;">${value}</td>`;
-                }
-
-                let cellsUH = "";
-                for(let i = 1; i <= maxUH; i++){
-                    const value = typeof rec[`uh_${i}`] === "number" ? rec[`uh_${i}`] : "-";
-                    cellsUH += `<td style="padding:6px; border:1px solid #ddd;">${value}</td>`;
-                }
-
-                html += `
-                <tr>
-                    <td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold; position:sticky; left:0; background:white; z-index:1;">${s.nama}</td>
-                    ${cellsTugas}
-                    ${cellsUH}
-                    <td style="padding:6px; border:1px solid #ddd;">${avgTugas}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${avgUH}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${uts}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${uas}</td>
-                    <td style="padding:6px; border:1px solid #ddd; font-weight:bold; background:#e5f2ef;">${nilaiAkhir}</td>
-                </tr>`;
-            });
-
-            html += `</tbody></table></div>`;
-            area.innerHTML = html;
-            return;
-        }
-
-        // AMBIL DATA ABSENSI
-        let snapshot;
-        let dataAbsensi = [];
-
-        if(jenis === "harian"){
-            if(!tglTerpilih){
-                toast("Pilih tanggal terlebih dahulu!");
-                area.innerHTML = "";
-                return;
-            }
-            const q = query(collection(db, "absensi"), where("tanggal", "==", tglTerpilih));
-            snapshot = await getDocs(q);
-        } else if(jenis === "bulanan" || jenis === "mingguan"){
-            const targetBulan = jenis === "bulanan" ? blnTerpilih : tglTerpilih.substring(0, 7);
-            if(!targetBulan){
-                toast("Pilih tanggal/bulan terlebih dahulu!");
-                area.innerHTML = "";
-                return;
-            }
-            const q = query(collection(db, "absensi"));
-            snapshot = await getDocs(q);
-        }
-
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            if(jenis === "harian" && d.tanggal === tglTerpilih){
-                dataAbsensi.push(d);
-            } else if(jenis !== "harian" && d.tanggal && d.tanggal.startsWith(jenis === "bulanan" ? blnTerpilih : tglTerpilih.substring(0, 7))){
-                dataAbsensi.push(d);
-            }
-        });
-
-        if(jenis === "harian"){
-            let html = `
-            <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-                <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-                    <thead>
-                        <tr style="background:#075E54; color:white;">
-                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                            <th style="padding:4px; border:1px solid #ddd; background:#0e6231;">Subuh</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J1</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J2</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J3</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J4</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J5</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J6</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J7</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J8</th>
-                            <th style="padding:4px; border:1px solid #ddd;">J9</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-            daftarSantri.forEach(s => {
-                html += `<tr><td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold;">${s.nama}</td>`;
-                const jamOrder = [10, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-                
-                jamOrder.forEach(j => {
-                    const record = dataAbsensi.find(a => a.santriId === s.id && String(a.jam) === String(j));
-                    let st = "-";
-                    let bg = "";
-                    if(record){
-                        if(record.status === "hadir") { st = "H"; bg = "#dff5e8"; }
-                        else if(record.status === "izin") { st = "I"; bg = "#fff2c9"; }
-                        else if(record.status === "sakit") { st = "S"; bg = "#dcecff"; }
-                        else if(record.status === "alpha") { st = "A"; bg = "#ffe1e1"; }
-                    }
-                    html += `<td style="padding:4px; border:1px solid #ddd; background:${bg}; font-weight:bold;">${st}</td>`;
-                });
-                
-                html += `</tr>`;
-            });
-
-            html += `</tbody></table></div>
-            <div style="font-size:11px; color:#68736f; margin-top:8px;">
-                <strong>Keterangan:</strong> H = Hadir, I = Izin, S = Sakit, A = Alpha
-            </div>`;
-
-            // SANTRI YANG BELUM DIABSEN SAMA SEKALI PADA TANGGAL INI
-            const belumAbsenHarian = daftarSantri.filter(s => !dataAbsensi.some(a => a.santriId === s.id));
-            html += buatBoxBelumAbsen(belumAbsenHarian, daftarSantri.length);
-
-            // GURU YANG BELUM MELAKUKAN ABSENSI SESUAI JADWAL PADA TANGGAL INI
-            const infoGuru = cariGuruBelumAbsen(daftarSantri, dataAbsensi, tglTerpilih);
-            html += buatBoxGuruBelumAbsen(infoGuru);
-
-            area.innerHTML = html;
-
+        let q;
+        if(kelas){
+            q = query(collection(db, "nilai"), where("kelas", "==", kelas), where("mapel", "==", mapel));
         } else {
-            let html = `
-            <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-                <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:center;">
+            q = query(collection(db, "nilai"), where("mapel", "==", mapel));
+        }
+        const snap = await getDocs(q);
+        let existingData = {};
+        snap.forEach(d => {
+            const val = d.data();
+            existingData[val.santriId] = val;
+        });
+
+        let html = `
+        <div style="background:white; border-radius:14px; padding:15px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
+            <div style="font-weight:bold; font-size:14px; margin-bottom:10px; color:#075E54;">
+                📋 Rekap Nilai Mapel: ${mapel.toUpperCase()} ${kelas ? `(${kelas})` : '(Semua Kelas)'}
+            </div>
+            <div class="table-responsive">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap;">
                     <thead>
-                        <tr style="background:#075E54; color:white;">
+                        <tr style="background:#075E54; color:white; text-align:center;">
                             <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                            <th style="padding:6px; border:1px solid #ddd; background:#0e6231;">Hadir</th>
-                            <th style="padding:6px; border:1px solid #ddd; background:#b8860b;">Izin</th>
-                            <th style="padding:6px; border:1px solid #ddd; background:#0056b3;">Sakit</th>
-                            <th style="padding:6px; border:1px solid #ddd; background:#a00000;">Alpha</th>
+                            <th style="padding:8px; border:1px solid #ddd;">Kelas</th>
+                            <th style="padding:8px; border:1px solid #ddd;">Rata-Rata Tugas</th>
+                            <th style="padding:8px; border:1px solid #ddd;">Rata-Rata UH</th>
+                            <th style="padding:8px; border:1px solid #ddd;">UTS</th>
+                            <th style="padding:8px; border:1px solid #ddd;">UAS</th>
+                            <th style="padding:8px; border:1px solid #ddd;">Nilai Akhir</th>
                         </tr>
                     </thead>
                     <tbody>`;
 
-            daftarSantri.forEach(s => {
-                const absensix = dataAbsensi.filter(a => a.santriId === s.id);
-                const h = absensix.filter(a => a.status === "hadir").length;
-                const i = absensix.filter(a => a.status === "izin").length;
-                const sk = absensix.filter(a => a.status === "sakit").length;
-                const a = absensix.filter(a => a.status === "alpha").length;
-
-                html += `
-                <tr>
-                    <td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold;">${s.nama}</td>
-                    <td style="padding:6px; border:1px solid #ddd; background:#dff5e8; font-weight:bold;">${h}</td>
-                    <td style="padding:6px; border:1px solid #ddd; background:#fff2c9; font-weight:bold;">${i}</td>
-                    <td style="padding:6px; border:1px solid #ddd; background:#dcecff; font-weight:bold;">${sk}</td>
-                    <td style="padding:6px; border:1px solid #ddd; background:#ffe1e1; font-weight:bold;">${a}</td>
-                </tr>`;
-            });
-
-            html += `</tbody></table></div>`;
-
-            // SANTRI YANG BELUM PERNAH DIABSEN SAMA SEKALI SELAMA PERIODE INI
-            const belumAbsenPeriode = daftarSantri.filter(s => !dataAbsensi.some(a => a.santriId === s.id));
-            html += buatBoxBelumAbsen(belumAbsenPeriode, daftarSantri.length);
-
-            area.innerHTML = html;
-        }
-
-    } catch(err) {
-        area.innerHTML = `<div class="error">Gagal memuat laporan: ${err.message}</div>`;
-    }
-};
-
-// MODAL MANUAL
-window.bukaModalSantri = function(id = null){
-    const modal = document.getElementById("modalSantri");
-    const title = document.getElementById("modalTitle");
-
-    document.getElementById("formSantri").reset();
-    document.getElementById("santriId").value = "";
-
-    if(id){
-        const data = santri.find(s => s.id === id);
-        if(data){
-            title.innerText = "Edit Santri";
-            document.getElementById("santriId").value = data.id;
-            document.getElementById("namaSantri").value = data.nama;
-            document.getElementById("kelasSantri").value = data.kelas;
-            document.getElementById("kamarSantri").value = data.kamar || "-";
-        }
-    } else {
-        title.innerText = "Tambah Santri";
-    }
-
-    modal.style.display = "flex";
-};
-
-window.tutupModalSantri = function(){
-    document.getElementById("modalSantri").style.display = "none";
-};
-
-// MODAL IMPORT
-window.bukaModalImport = function(){
-    document.getElementById("formImport").reset();
-    document.getElementById("modalImport").style.display = "flex";
-};
-
-window.tutupModalImport = function(){
-    document.getElementById("modalImport").style.display = "none";
-};
-
-// MODAL HAPUS KELAS
-window.bukaModalHapusKelas = function(){
-    siapkanFilterKelas();
-    document.getElementById("formHapusKelas").reset();
-    document.getElementById("modalHapusKelas").style.display = "flex";
-};
-
-window.tutupModalHapusKelas = function(){
-    document.getElementById("modalHapusKelas").style.display = "none";
-};
-
-// PROSES HAPUS SANTRI PER KELAS
-document.getElementById("formHapusKelas").addEventListener("submit", async function(e){
-    e.preventDefault();
-    const kelasTarget = document.getElementById("pilihanKelasHapus").value;
-
-    if(!kelasTarget) return;
-
-    if(!confirm(`Apakah Anda yakin ingin menghapus SELURUH santri di kelas '${kelasTarget}'? Data yang dihapus tidak bisa dikembalikan!`)){
-        return;
-    }
-
-    const btn = document.getElementById("btnProsesHapusKelas");
-    btn.disabled = true;
-    btn.innerText = "Menghapus...";
-
-    try {
-        const q = query(collection(db, "santri"), where("kelas", "==", kelasTarget));
-        const snapshot = await getDocs(q);
-
-        if(snapshot.empty){
-            toast("Tidak ada data santri pada kelas ini.");
-            return;
-        }
-
-        let batch = writeBatch(db);
-        let count = 0;
-        let totalDihapus = 0;
-
-        snapshot.forEach((docSnapshot) => {
-            batch.delete(docSnapshot.ref);
-            count++;
-            totalDihapus++;
-
-            if(count === 400){
-                batch.commit();
-                batch = writeBatch(db);
-                count = 0;
-            }
-        });
-
-        if(count > 0){
-            await batch.commit();
-        }
-
-        toast(`Berhasil menghapus ${totalDihapus} santri kelas ${kelasTarget}! ✓`);
-        tutupModalHapusKelas();
-        await ambilDataSantri();
-        siapkanFilterKelas();
-        tampilkanKelolaSantri();
-
-    } catch(err){
-        toast("Gagal menghapus: " + err.message);
-        tampilError("Hapus Error: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "Hapus Kelas";
-    }
-});
-
-// PROSES IMPORT CSV
-document.getElementById("formImport").addEventListener("submit", async function(e){
-    e.preventDefault();
-    const fileInput = document.getElementById("fileCsv");
-    const file = fileInput.files[0];
-
-    if(!file) return;
-
-    const btn = document.getElementById("btnProsesImport");
-    btn.disabled = true;
-    btn.innerText = "Mengunggah...";
-
-    const reader = new FileReader();
-    reader.onload = async function(evt){
-        try {
-            const teks = evt.target.result;
-            const baris = teks.split(/\r\n|\n/).map(b => b.trim()).filter(b => b.length > 0);
+        santriAktif.forEach(s => {
+            const dataS = existingData[s.id] || {};
             
-            if(baris.length <= 1){
-                throw new Error("File CSV kosong atau format tidak sesuai.");
-            }
-
-            const pemisah = baris[0].includes(';') ? ';' : ',';
-            const header = baris[0].split(pemisah).map(h => h.replace(/["']/g, '').trim().toLowerCase());
+            let tugasSum = 0, tugasCount = 0;
+            let uhSum = 0, uhCount = 0;
             
-            const idxNama = header.indexOf('nama');
-            const idxKelas = header.indexOf('kelas');
-            const idxKamar = header.indexOf('kamar');
-
-            if(idxNama === -1 || idxKelas === -1){
-                throw new Error("Header CSV tidak ditemukan. Pastikan baris 1 berisi: nama;kelas;kamar");
-            }
-
-            let batch = writeBatch(db);
-            let count = 0;
-            let totalTersimpan = 0;
-
-            for(let i = 1; i < baris.length; i++){
-                const kol = baris[i].split(pemisah).map(k => k.replace(/["']/g, '').trim());
-                
-                if(!kol[idxNama]) continue;
-
-                const santriBaruRef = doc(collection(db, "santri"));
-                const dataObj = {
-                    nama: kol[idxNama],
-                    kelas: kol[idxKelas] || '-',
-                    kamar: (idxKamar !== -1 && kol[idxKamar]) ? kol[idxKamar] : '-',
-                    status: 'aktif'
-                };
-
-                batch.set(santriBaruRef, dataObj);
-                count++;
-                totalTersimpan++;
-
-                if(count === 400){
-                    await batch.commit();
-                    batch = writeBatch(db);
-                    count = 0;
+            Object.keys(dataS).forEach(k => {
+                if(k.startsWith("tugas_") && dataS[k] !== null){
+                    tugasSum += Number(dataS[k]);
+                    tugasCount++;
                 }
-            }
-
-            if(count > 0){
-                await batch.commit();
-            }
-
-            toast(`Berhasil mengimport ${totalTersimpan} santri! ✓`);
-            tutupModalImport();
-            await ambilDataSantri();
-            siapkanFilterKelas();
-            tampilkanKelolaSantri();
-
-        } catch(err){
-            toast("Gagal import: " + err.message);
-            tampilError("Import Error: " + err.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Unggah & Simpan";
-        }
-    };
-
-    reader.readAsText(file, "UTF-8");
-});
-
-// SIMPAN TAMBAH / EDIT MANUAL
-document.getElementById("formSantri").addEventListener("submit", async function(e){
-    e.preventDefault();
-    const id = document.getElementById("santriId").value;
-    const nama = document.getElementById("namaSantri").value.trim();
-    const kelas = document.getElementById("kelasSantri").value.trim();
-    const kamar = document.getElementById("kamarSantri").value.trim();
-
-    try{
-        if(id){
-            await updateDoc(doc(db, "santri", id), { nama, kelas, kamar });
-            const index = santri.findIndex(s => s.id === id);
-            if(index !== -1){
-                santri[index].nama = nama;
-                santri[index].kelas = kelas;
-                santri[index].kamar = kamar;
-            }
-            toast("Data santri diperbarui ✓");
-        } else {
-            const docRef = await addDoc(collection(db, "santri"), {
-                nama, kelas, kamar, status: "aktif"
-            });
-            santri.push({ id: docRef.id, nama, kelas, kamar, status: "aktif" });
-            toast("Santri berhasil ditambahkan ✓");
-        }
-
-        siapkanFilterKelas();
-        tutupModalSantri();
-        tampilkanKelolaSantri(document.getElementById("searchManage").value);
-    } catch(err){
-        toast("Gagal menyimpan data");
-        tampilError(err.message);
-    }
-});
-
-// TOGGLE STATUS
-window.toggleStatusSantri = async function(id){
-    const target = santri.find(s => s.id === id);
-    if(!target) return;
-
-    const statusBaru = target.status === "nonaktif" ? "aktif" : "nonaktif";
-
-    try {
-        await updateDoc(doc(db, "santri", id), { status: statusBaru });
-        target.status = statusBaru;
-        
-        toast(`Santri di-${statusBaru === "aktif" ? "aktifkan" : "nonaktifkan"} ✓`);
-        tampilkanKelolaSantri(document.getElementById("searchManage").value);
-        siapkanFilterKelas();
-    } catch(err) {
-        toast("Gagal mengubah status");
-        tampilError(err.message);
-    }
-};
-
-// ==========================================
-// EVENT LISTENERS & FUNGSI TOMBOL
-// ==========================================
-
-// 1. Pencarian Santri di Halaman Beranda
-document.getElementById("search").addEventListener("input", filterSantri);
-
-// 2. Pencarian Santri di Halaman Kelola Santri
-document.getElementById("searchManage").addEventListener("input", function(){
-    tampilkanKelolaSantri(this.value);
-});
-
-// 3. Filter Kelas di Halaman Beranda
-document.getElementById("filterKelas").addEventListener("change", function(){
-    kelasTerpilih = this.value;
-    filterSantri();
-    hitungStatistik();
-    perbaruiInfoJadwal();
-});
-
-// 4. Fungsi Pilih Jam Pelajaran (Tombol Horizontal)
-window.pilihJam = async function(nilaiJam, element) {
-    jamPelajaran = nilaiJam;
-
-    // Ubah status kelas tombol aktif
-    const semuaBtnJam = document.querySelectorAll('.btn-jam');
-    semuaBtnJam.forEach(btn => btn.classList.remove('active'));
-    element.classList.add('active');
-
-    // Tampilkan indikator loading dan muat data absensi
-    const list = document.getElementById("studentList");
-    const labelJam = nilaiJam === '10' ? 'Subuh' : `Jam ke-${nilaiJam}`;
-    list.innerHTML = `<div class="loading">Memuat data ${labelJam}...</div>`;
-    
-    await ambilAbsensi();
-    filterSantri();
-    hitungStatistik();
-    perbaruiInfoJadwal();
-};
-
-// 5. Fungsi Hadirkan Semua Santri
-window.hadirkanSemuaSantri = async function(){
-    const jamTerpilih = jamPelajaran;
-    const kelasTerpilih = document.getElementById("filterKelas").value;
-    const kataKunci = document.getElementById("search").value.toLowerCase();
-
-    let daftarTarget = santri.filter(s => s.status !== "nonaktif");
-
-    if(kelasTerpilih){
-        daftarTarget = daftarTarget.filter(s => s.kelas === kelasTerpilih);
-    }
-    if(kataKunci){
-        daftarTarget = daftarTarget.filter(s => s.nama.toLowerCase().includes(kataKunci));
-    }
-
-    if(daftarTarget.length === 0){
-        toast("Tidak ada santri yang dapat diproses!");
-        return;
-    }
-
-    try {
-        toast("Sedang memproses...");
-
-        const janjiSimpan = daftarTarget.map(async (s) => {
-            const documentId = `${tanggalHariIni}_Jam${jamTerpilih}_${s.id}`;
-            const refAbsen = doc(db, "absensi", documentId);
-            
-            await setDoc(refAbsen, {
-                santriId: s.id,
-                tanggal: tanggalHariIni,
-                jam: jamTerpilih,
-                status: "hadir",
-                userId: user.uid,
-                updatedAt: new Date().toISOString()
+                if(k.startsWith("uh_") && dataS[k] !== null){
+                    uhSum += Number(dataS[k]);
+                    uhCount++;
+                }
             });
 
-            absensiHariIni[s.id] = "hadir";
+            const avgTugas = tugasCount > 0 ? (tugasSum / tugasCount) : null;
+            const avgUh = uhCount > 0 ? (uhSum / uhCount) : null;
+            const uts = dataS.uts !== undefined && dataS.uts !== null ? Number(dataS.uts) : null;
+            const uas = dataS.uas !== undefined && dataS.uas !== null ? Number(dataS.uas) : null;
+
+            let components = [];
+            if(avgTugas !== null) components.push(avgTugas);
+            if(avgUh !== null) components.push(avgUh);
+            if(uts !== null) components.push(uts);
+            if(uas !== null) components.push(uas);
+
+            const finalScore = components.length > 0 ? (components.reduce((a, b) => a + b, 0) / components.length).toFixed(1) : "-";
+
+            html += `
+            <tr>
+                <td style="padding:6px 8px; border:1px solid #ddd; font-weight:bold;">${s.nama}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${s.kelas}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${avgTugas !== null ? avgTugas.toFixed(1) : '-'}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${avgUh !== null ? avgUh.toFixed(1) : '-'}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${uts !== null ? uts : '-'}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${uas !== null ? uas : '-'}</td>
+                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center; font-weight:bold; background:#e5f2ef; color:#075E54;">${finalScore}</td>
+            </tr>`;
         });
 
-        await Promise.all(janjiSimpan);
-
-        toast(`Semua santri (${daftarTarget.length}) langsung HADIR ✓`);
-        
-        filterSantri();
-        hitungStatistik();
+        html += `</tbody></table></div></div>`;
+        areaElement.innerHTML = html;
 
     } catch(err) {
-        toast("Gagal memproses: " + err.message);
+        areaElement.innerHTML = `<div class="error">Gagal memuat rekap nilai per mapel: ${err.message}</div>`;
     }
-};
-
-// 6. Fungsi Reset / Hapus Status Absensi
-window.resetSemuaAbsensiSantri = async function(){
-    const jamTerpilih = jamPelajaran;
-    const kelasTerpilih = document.getElementById("filterKelas").value;
-    const kataKunci = document.getElementById("search").value.toLowerCase();
-
-    let daftarTarget = santri.filter(s => s.status !== "nonaktif");
-
-    if(kelasTerpilih){
-        daftarTarget = daftarTarget.filter(s => s.kelas === kelasTerpilih);
-    }
-    if(kataKunci){
-        daftarTarget = daftarTarget.filter(s => s.nama.toLowerCase().includes(kataKunci));
-    }
-
-    if(daftarTarget.length === 0){
-        toast("Tidak ada santri yang dapat diproses!");
-        return;
-    }
-
-    if(!confirm(`Apakah Anda yakin ingin menghapus/mengosongkan status absensi untuk ${daftarTarget.length} santri pada Jam ke-${jamTerpilih === '10' ? 'Subuh' : jamTerpilih}?`)){
-        return;
-    }
-
-    try {
-        toast("Mengosongkan absensi...");
-
-        let batch = writeBatch(db);
-        let count = 0;
-
-        for(const s of daftarTarget){
-            const documentId = `${tanggalHariIni}_Jam${jamTerpilih}_${s.id}`;
-            const refAbsen = doc(db, "absensi", documentId);
-            
-            batch.delete(refAbsen);
-            delete absensiHariIni[s.id];
-            count++;
-
-            if(count === 400){
-                await batch.commit();
-                batch = writeBatch(db);
-                count = 0;
-            }
-        }
-
-        if(count > 0){
-            await batch.commit();
-        }
-
-        toast(`Status absensi ${daftarTarget.length} santri berhasil di-reset ✓`);
-        
-        filterSantri();
-        hitungStatistik();
-
-    } catch(err) {
-        toast("Gagal menghapus status: " + err.message);
-        tampilError("Reset Absensi Error: " + err.message);
-    }
-};
-
-// HADIRKAN SEMUA SANTRI
-window.hadirkanSemuaSantri = async function(){
-    const jamTerpilih = jamPelajaran;
-    const kelasTerpilih = document.getElementById("filterKelas").value;
-    const kataKunci = document.getElementById("search").value.toLowerCase();
-
-    let daftarTarget = santri.filter(s => s.status !== "nonaktif");
-
-    if(kelasTerpilih){
-        daftarTarget = daftarTarget.filter(s => s.kelas === kelasTerpilih);
-    }
-    if(kataKunci){
-        daftarTarget = daftarTarget.filter(s => s.nama.toLowerCase().includes(kataKunci));
-    }
-
-    if(daftarTarget.length === 0){
-        toast("Tidak ada santri yang dapat diproses!");
-        return;
-    }
-
-    try {
-        toast("Sedang memproses...");
-
-        const janjiSimpan = daftarTarget.map(async (s) => {
-            const documentId = `${tanggalHariIni}_Jam${jamTerpilih}_${s.id}`;
-            const refAbsen = doc(db, "absensi", documentId);
-            
-            await setDoc(refAbsen, {
-                santriId: s.id,
-                tanggal: tanggalHariIni,
-                jam: jamTerpilih,
-                status: "hadir",
-                userId: user.uid,
-                updatedAt: new Date().toISOString()
-            });
-
-            absensiHariIni[s.id] = "hadir";
-        });
-
-        await Promise.all(janjiSimpan);
-
-        toast(`Semua santri (${daftarTarget.length}) langsung HADIR ✓`);
-        
-        filterSantri();
-        hitungStatistik();
-
-    } catch(err) {
-        toast("Gagal memproses: " + err.message);
-    }
-};
-
-    // RESET / HILANGKAN STATUS ABSENSI SEMUA SANTRI TERFILTER
-window.resetSemuaAbsensiSantri = async function(){
-    const jamTerpilih = document.getElementById("filterJam").value;
-    const kelasTerpilih = document.getElementById("filterKelas").value;
-    const kataKunci = document.getElementById("search").value.toLowerCase();
-
-    // Filter santri aktif yang sedang tampil
-    let daftarTarget = santri.filter(s => s.status !== "nonaktif");
-
-    if(kelasTerpilih){
-        daftarTarget = daftarTarget.filter(s => s.kelas === kelasTerpilih);
-    }
-    if(kataKunci){
-        daftarTarget = daftarTarget.filter(s => s.nama.toLowerCase().includes(kataKunci));
-    }
-
-    if(daftarTarget.length === 0){
-        toast("Tidak ada santri yang dapat diproses!");
-        return;
-    }
-
-    // Konfirmasi sebelum menghapus
-    if(!confirm(`Apakah Anda yakin ingin menghapus/mengosongkan status absensi untuk ${daftarTarget.length} santri pada Jam ke-${jamTerpilih}?`)){
-        return;
-    }
-
-    try {
-        toast("Mengosongkan absensi...");
-
-        // Gunakan batch delete agar proses ke Firestore lebih cepat dan efisien
-        let batch = writeBatch(db);
-        let count = 0;
-
-        for(const s of daftarTarget){
-            const documentId = `${tanggalHariIni}_Jam${jamTerpilih}_${s.id}`;
-            const refAbsen = doc(db, "absensi", documentId);
-            
-            batch.delete(refAbsen);
-            delete absensiHariIni[s.id]; // Hapus dari memori lokal
-            count++;
-
-            // Commit setiap kelipatan 400 dokumen
-            if(count === 400){
-                await batch.commit();
-                batch = writeBatch(db);
-                count = 0;
-            }
-        }
-
-        if(count > 0){
-            await batch.commit();
-        }
-
-        toast(`Status absensi ${daftarTarget.length} santri berhasil di-reset ✓`);
-        
-        filterSantri();
-        hitungStatistik();
-
-    } catch(err) {
-        toast("Gagal menghapus status: " + err.message);
-        tampilError("Reset Absensi Error: " + err.message);
-    }
-};
-
+}
 </script>
-
 </body>
 </html>
