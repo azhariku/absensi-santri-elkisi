@@ -1356,12 +1356,12 @@ window.tampilkanHasilLaporan = async function(){
 
             dataNilai.forEach(rec => {
                 Object.keys(rec).forEach(key => {
-                    let m = key.match(/^tugas_(\\d+)$/);
+                    let m = key.match(/^tugas_(\d+)$/);
                     if(m && typeof rec[key] === "number"){
                         maxTugas = Math.max(maxTugas, Number(m[1]));
                     }
 
-                    m = key.match(/^uh_(\\d+)$/);
+                    m = key.match(/^uh_(\d+)$/);
                     if(m && typeof rec[key] === "number"){
                         maxUH = Math.max(maxUH, Number(m[1]));
                     }
