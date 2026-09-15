@@ -276,7 +276,6 @@ body{
     text-align:center;
 }
 
-/* Modal */
 .modal{
     display:none;
     position:fixed;
@@ -344,7 +343,6 @@ body{
     .status{ width:29px; height:29px; font-size:12px; }
 }
 
-/* Container Scroll Horizontal untuk Jam Pelajaran */
 .jam-container {
     display: flex;
     gap: 8px;
@@ -431,7 +429,6 @@ body{
                 <option value="">Semua Kelas</option>
             </select>
 
-            <!-- Tombol Jam Pelajaran Horizontal -->
             <div class="jam-container" id="containerJam">
                 <button type="button" class="btn-jam" onclick="pilihJam('10', this)">Subuh</button>
                 <button type="button" class="btn-jam active" onclick="pilihJam('1', this)">Jam 1</button>
@@ -492,19 +489,19 @@ body{
             <div style="background:white; padding:15px; border-radius:17px; box-shadow:0 3px 12px rgba(0,0,0,.04); margin-bottom:15px;">
                 <div class="form-group">
                     <label>Filter Kelas</label>
-                    <select id="kelasNilai" class="input-field" onchange="muatDataInputNilai()">
+                    <select id="kelasNilai" class="input-field">
                         <option value="">-- Pilih Kelas --</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label>Mata Pelajaran</label>
-                    <input type="text" id="mapelNilai" class="input-field" placeholder="Contoh: Fiqih / Bahasa Arab" onchange="muatDataInputNilai()">
+                    <input type="text" id="mapelNilai" class="input-field" placeholder="Contoh: Fiqih / Bahasa Arab">
                 </div>
 
                 <div class="form-group">
                     <label>Komponen Nilai</label>
-                    <select id="kategoriNilai" class="input-field" onchange="cekTampilKePilihan(); muatDataInputNilai();">
+                    <select id="kategoriNilai" class="input-field">
                         <option value="tugas">Tugas</option>
                         <option value="uh">Ulangan Harian (UH)</option>
                         <option value="uts">UTS</option>
@@ -514,7 +511,7 @@ body{
 
                 <div class="form-group" id="groupKeNilai">
                     <label id="labelKeNilai">Tugas Ke-</label>
-                    <input type="number" id="keNilai" class="input-field" min="1" value="1" onchange="muatDataInputNilai()">
+                    <input type="number" id="keNilai" class="input-field" min="1" value="1">
                 </div>
             </div>
 
@@ -536,7 +533,7 @@ body{
             <div style="background:white; padding:15px; border-radius:17px; box-shadow:0 3px 12px rgba(0,0,0,.04); margin-bottom:15px;">
                 <div class="form-group">
                     <label>Jenis Laporan</label>
-                    <select id="jenisLaporanNav" class="input-field" onchange="sesuaikanInputLaporanNav()">
+                    <select id="jenisLaporanNav" class="input-field">
                         <option value="harian">Absensi Harian (Per Jam 1-9)</option>
                         <option value="mingguan">Absensi Mingguan</option>
                         <option value="bulanan">Absensi Bulanan</option>
@@ -725,9 +722,25 @@ async function mulaiAplikasi(){
         filterSantri();
         hitungStatistik();
         perbaruiInfoJadwal();
+        pasangEventListener();
     } catch(error){
         tampilError("Terjadi kesalahan: " + error.message);
     }
+}
+
+function pasangEventListener(){
+    const searchEl = document.getElementById("search");
+    const filterKelasEl = document.getElementById("filterKelas");
+    const searchManageEl = document.getElementById("searchManage");
+
+    if(searchEl) searchEl.addEventListener("input", filterSantri);
+    if(filterKelasEl) filterKelasEl.addEventListener("change", () => {
+        kelasTerpilih = filterKelasEl.value;
+        filterSantri();
+        hitungStatistik();
+        perbaruiInfoJadwal();
+    });
+    if(searchManageEl) searchManageEl.addEventListener("input", (e) => tampilkanKelolaSantri(e.target.value));
 }
 
 async function ambilDataSantri(){
@@ -970,6 +983,64 @@ window.ubahStatus = async function(santriId, status){
     }
 };
 
+window.hadirkanSemuaSantri = async function(){
+    const kelas = document.getElementById("filterKelas").value;
+    const targetSantri = santri.filter(s => s.status !== "nonaktif" && (!kelas || s.kelas === kelas));
+    
+    if(targetSantri.length === 0){
+        toast("Tidak ada santri untuk diubah.");
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+        targetSantri.forEach(s => {
+            const documentId = `${tanggalHariIni}_Jam${jamPelajaran}_${s.id}`;
+            const ref = doc(db, "absensi", documentId);
+            batch.set(ref, {
+                santriId: s.id,
+                tanggal: tanggalHariIni,
+                jam: jamPelajaran,
+                status: "hadir",
+                userId: user.uid,
+                updatedAt: new Date().toISOString()
+            });
+            absensiHariIni[s.id] = "hadir";
+        });
+        await batch.commit();
+        filterSantri();
+        hitungStatistik();
+        toast("Semua santri diset Hadir ✓");
+    } catch(error) {
+        toast("Gagal memproses Hadir Semua");
+        tampilError(error.message);
+    }
+};
+
+window.resetSemuaAbsensiSantri = async function(){
+    if(!confirm("Yakin ingin menghapus absensi pada jam ini?")) return;
+    
+    const kelas = document.getElementById("filterKelas").value;
+    const targetSantri = santri.filter(s => s.status !== "nonaktif" && (!kelas || s.kelas === kelas));
+
+    try {
+        const batch = writeBatch(db);
+        targetSantri.forEach(s => {
+            const documentId = `${tanggalHariIni}_Jam${jamPelajaran}_${s.id}`;
+            const ref = doc(db, "absensi", documentId);
+            batch.delete(ref);
+            delete absensiHariIni[s.id];
+        });
+        await batch.commit();
+        filterSantri();
+        hitungStatistik();
+        toast("Absensi jam ini telah di-reset ✓");
+    } catch(error) {
+        toast("Gagal melakukan reset");
+        tampilError(error.message);
+    }
+};
+
 function hitungStatistik(){
     let hadir = 0, izin = 0, sakit = 0, alpha = 0;
 
@@ -996,7 +1067,6 @@ function hitungStatistik(){
     document.getElementById("persentase").innerText = persen + "%";
 }
 
-// NAVIGASI HALAMAN
 window.pindahHalaman = function(halaman){
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(el => el.classList.remove('active'));
@@ -1029,402 +1099,94 @@ window.pindahHalaman = function(halaman){
 function siapkanHalamanNilai(){
     const selectNilai = document.getElementById("kelasNilai");
     const selectFilter = document.getElementById("filterKelas");
-    selectNilai.innerHTML = selectFilter.innerHTML;
+    if(selectNilai && selectFilter) {
+        selectNilai.innerHTML = selectFilter.innerHTML;
+    }
     cekTampilKePilihan();
 }
 
 window.cekTampilKePilihan = function(){
-    const kat = document.getElementById("kategoriNilai").value;
-    const grpKe = document.getElementById("groupKeNilai");
-    const lblKe = document.getElementById("labelKeNilai");
+    const kat = document.getElementById("kategoriNilai") ? document.getElementById("kategoriNilai").value : "";
+    const groupKe = document.getElementById("groupKeNilai");
+    const labelKe = document.getElementById("labelKeNilai");
+
+    if(!groupKe || !labelKe) return;
 
     if(kat === "tugas"){
-        grpKe.style.display = "block";
-        lblKe.innerText = "Tugas Ke-";
+        groupKe.style.display = "block";
+        labelKe.innerText = "Tugas Ke-";
     } else if(kat === "uh"){
-        grpKe.style.display = "block";
-        lblKe.innerText = "Ulangan Harian (UH) Ke-";
+        groupKe.style.display = "block";
+        labelKe.innerText = "UH Ke-";
     } else {
-        grpKe.style.display = "none";
-    }
-};
-
-window.muatDataInputNilai = async function(){
-    const kelas = document.getElementById("kelasNilai").value;
-    const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
-    const kat = document.getElementById("kategoriNilai").value;
-    const ke = document.getElementById("keNilai").value || 1;
-    
-    const area = document.getElementById("areaInputNilai");
-    const btnSimpan = document.getElementById("btnSimpanNilai");
-
-    if(!kelas || !mapel){
-        area.innerHTML = `<div class="loading">Pilih kelas dan isi mata pelajaran terlebih dahulu.</div>`;
-        btnSimpan.style.display = "none";
-        return;
-    }
-
-    const santriAktif = santri.filter(s => s.status !== "nonaktif" && s.kelas === kelas);
-    if(santriAktif.length === 0){
-        area.innerHTML = `<div class="loading">Tidak ada santri aktif di kelas ini.</div>`;
-        btnSimpan.style.display = "none";
-        return;
-    }
-
-    santriAktif.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
-
-    let fieldKey = kat;
-    if(kat === "tugas") fieldKey = `tugas_${ke}`;
-    if(kat === "uh") fieldKey = `uh_${ke}`;
-
-    let existingData = {};
-    try {
-        const q = query(collection(db, "nilai"), where("kelas", "==", kelas), where("mapel", "==", mapel));
-        const snap = await getDocs(q);
-        snap.forEach(d => {
-            const val = d.data();
-            existingData[val.santriId] = val;
-        });
-    } catch(err) {
-        console.error("Gagal mengambil data nilai:", err);
-    }
-
-    let html = `<div style="background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead>
-                <tr style="background:#075E54; color:white; text-align:center;">
-                    <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                    <th style="padding:4px; border:1px solid #ddd; width:80px;">Nilai ${kat.toUpperCase()} ${ (kat==='tugas'||kat==='uh') ? ke : '' }</th>
-                </tr>
-            </thead>
-            <tbody>`;
-
-    santriAktif.forEach(s => {
-        const score = (existingData[s.id] && existingData[s.id][fieldKey]) !== undefined && existingData[s.id][fieldKey] !== null ? existingData[s.id][fieldKey] : "";
-        html += `
-        <tr>
-            <td style="padding:8px; border:1px solid #ddd; font-weight:bold;">${s.nama}</td>
-            <td style="padding:4px; border:1px solid #ddd;">
-                <input type="number" min="0" max="100" class="input-field input-score" data-santriid="${s.id}" value="${score}" style="text-align:center; padding:6px;">
-            </td>
-        </tr>`;
-    });
-
-    html += `</tbody></table></div>`;
-    area.innerHTML = html;
-    btnSimpan.style.display = "block";
-};
-
-window.simpanSemuaNilai = async function(){
-    const kelas = document.getElementById("kelasNilai").value;
-    const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
-    const kat = document.getElementById("kategoriNilai").value;
-    const ke = document.getElementById("keNilai").value || 1;
-    const inputs = document.querySelectorAll(".input-score");
-
-    if(!kelas || !mapel) return;
-
-    let fieldKey = kat;
-    if(kat === "tugas") fieldKey = `tugas_${ke}`;
-    if(kat === "uh") fieldKey = `uh_${ke}`;
-
-    try {
-        toast("Menyimpan nilai...");
-        const batch = writeBatch(db);
-
-        inputs.forEach(inp => {
-            const santriId = inp.dataset.santriid;
-            const nilaiVal = inp.value !== "" ? Number(inp.value) : null;
-            
-            const docId = `${kelas}_${mapel}_${santriId}`.replace(/\s+/g, '_');
-            const refDoc = doc(db, "nilai", docId);
-
-            batch.set(refDoc, {
-                santriId,
-                kelas,
-                mapel,
-                [fieldKey]: nilaiVal,
-                updatedAt: new Date().toISOString()
-            }, { merge: true });
-        });
-
-        await batch.commit();
-        toast("Semua nilai berhasil disimpan ✓");
-    } catch(err) {
-        toast("Gagal menyimpan nilai: " + err.message);
-    }
-};
-
-// NAVIGASI KONTROL INPUT LAPORAN
-window.sesuaikanInputLaporanNav = function(){
-    const jenis = document.getElementById("jenisLaporanNav").value;
-    const groupTgl = document.getElementById("groupTanggalNav");
-    const groupBln = document.getElementById("groupBulanNav");
-    const groupMapel = document.getElementById("groupMapelNav");
-
-    if(jenis === "bulanan"){
-        groupTgl.style.display = "none";
-        groupBln.style.display = "block";
-        groupMapel.style.display = "none";
-    } else if(jenis === "nilai"){
-        groupTgl.style.display = "none";
-        groupBln.style.display = "none";
-        groupMapel.style.display = "block";
-    } else if(jenis === "nilai_kelas"){
-        groupTgl.style.display = "none";
-        groupBln.style.display = "none";
-        groupMapel.style.display = "none";
-    } else {
-        groupTgl.style.display = "block";
-        groupBln.style.display = "none";
-        groupMapel.style.display = "none";
+        groupKe.style.display = "none";
     }
 };
 
 function siapkanHalamanLaporan(){
-    document.getElementById("tglLaporanNav").value = tanggalHariIni;
-    const skrg = new Date();
-    const formatBulan = skrg.getFullYear() + "-" + String(skrg.getMonth() + 1).padStart(2, '0');
-    document.getElementById("blnLaporanNav").value = formatBulan;
-
-    const selectLaporan = document.getElementById("kelasLaporanNav");
+    const selectLap = document.getElementById("kelasLaporanNav");
     const selectFilter = document.getElementById("filterKelas");
-    selectLaporan.innerHTML = selectFilter.innerHTML;
+    if(selectLap && selectFilter) {
+        selectLap.innerHTML = selectFilter.innerHTML;
+    }
 }
 
-window.tampilkanHasilLaporan = async function(){
-    const jenis = document.getElementById("jenisLaporanNav").value;
-    const kelas = document.getElementById("kelasLaporanNav").value;
-    const area = document.getElementById("areaHasilLaporan");
+/* Modal Helpers */
+window.bukaModalSantri = function(id = null){
+    const modal = document.getElementById("modalSantri");
+    const form = document.getElementById("formSantri");
+    document.getElementById("modalTitle").innerText = id ? "Edit Santri" : "Tambah Santri";
+    document.getElementById("santriId").value = id || "";
 
-    area.innerHTML = `<div class="loading">Memproses data laporan...</div>`;
-
-    if(jenis === "nilai_kelas"){
-        await tampilkanLaporanNilaiPerKelas(kelas, area);
-        return;
-    }
-
-    if(jenis === "nilai"){
-        const mapel = document.getElementById("mapelLaporanNav").value.trim().toLowerCase();
-        if(!mapel){
-            area.innerHTML = `<div class="error">Harap isi nama mata pelajaran terlebih dahulu!</div>`;
-            return;
+    if(id){
+        const target = santri.find(s => s.id === id);
+        if(target){
+            document.getElementById("namaSantri").value = target.nama || "";
+            document.getElementById("kelasSantri").value = target.kelas || "";
+            document.getElementById("kamarSantri").value = target.kamar || "";
         }
-        await tampilkanLaporanNilaiPerMapel(kelas, mapel, area);
-        return;
+    } else {
+        form.reset();
     }
-
-    area.innerHTML = `<div class="loading">Laporan absensi diproses...</div>`;
+    modal.style.display = "flex";
 };
 
-// FUNGSI LAPORAN NILAI PER KELAS (SEMUA MAPEL)
-async function tampilkanLaporanNilaiPerKelas(kelasTerpilih, areaElement){
-    if(!kelasTerpilih){
-        areaElement.innerHTML = `<div class="error">Harap pilih kelas terlebih dahulu untuk melihat rekap nilai semua mapel!</div>`;
-        return;
-    }
+window.tutupModalSantri = function(){
+    document.getElementById("modalSantri").style.display = "none";
+};
 
-    const santriKelas = santri.filter(s => s.status !== "nonaktif" && s.kelas === kelasTerpilih);
-    if(santriKelas.length === 0){
-        areaElement.innerHTML = `<div class="error">Tidak ada data santri aktif di kelas ${kelasTerpilih}.</div>`;
-        return;
-    }
+window.bukaModalImport = function(){
+    document.getElementById("modalImport").style.display = "flex";
+};
 
-    santriKelas.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
+window.tutupModalImport = function(){
+    document.getElementById("modalImport").style.display = "none";
+};
 
+window.bukaModalHapusKelas = function(){
+    document.getElementById("modalHapusKelas").style.display = "flex";
+};
+
+window.tutupModalHapusKelas = function(){
+    document.getElementById("modalHapusKelas").style.display = "none";
+};
+
+window.toggleStatusSantri = async function(id){
+    const target = santri.find(s => s.id === id);
+    if(!target) return;
+
+    const statusBaru = target.status === "nonaktif" ? "aktif" : "nonaktif";
     try {
-        const q = query(collection(db, "nilai"), where("kelas", "==", kelasTerpilih));
-        const snap = await getDocs(q);
-
-        if(snap.empty){
-            areaElement.innerHTML = `<div class="loading">Belum ada nilai yang terinput untuk kelas ${kelasTerpilih}.</div>`;
-            return;
-        }
-
-        const mapelSet = new Set();
-        const dataNilai = {}; // { santriId: { mapel: rataRataMapel } }
-
-        snap.forEach(d => {
-            const val = d.data();
-            const sId = val.santriId;
-            const mp = val.mapel ? val.mapel.toUpperCase() : "TANPA MAPEL";
-            mapelSet.add(mp);
-
-            let total = 0;
-            let count = 0;
-
-            Object.keys(val).forEach(key => {
-                if(key !== "santriId" && key !== "kelas" && key !== "mapel" && key !== "updatedAt"){
-                    if(val[key] !== null && val[key] !== undefined && !isNaN(val[key])){
-                        total += Number(val[key]);
-                        count++;
-                    }
-                }
-            });
-
-            const rerata = count > 0 ? (total / count) : null;
-
-            if(!dataNilai[sId]) dataNilai[sId] = {};
-            dataNilai[sId][mp] = rerata;
-        });
-
-        const daftarMapel = Array.from(mapelSet).sort();
-
-        if(daftarMapel.length === 0){
-            areaElement.innerHTML = `<div class="loading">Belum ada nilai terinput.</div>`;
-            return;
-        }
-
-        let html = `
-        <div style="background:white; border-radius:14px; padding:15px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-            <div style="font-weight:bold; font-size:14px; margin-bottom:10px; color:#075E54;">
-                📋 Rekap Nilai Akhir Per Kelas: ${kelasTerpilih}
-            </div>
-            <div class="table-responsive">
-                <table style="width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap;">
-                    <thead>
-                        <tr style="background:#075E54; color:white; text-align:center;">
-                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">No</th>
-                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>`;
-        
-        daftarMapel.forEach(mp => {
-            html += `<th style="padding:8px; border:1px solid #ddd;">${mp}</th>`;
-        });
-
-        html += `<th style="padding:8px; border:1px solid #ddd; background:#05443d;">Rata-Rata Total</th>
-                </tr>
-            </thead>
-            <tbody>`;
-
-        santriKelas.forEach((s, idx) => {
-            let totalSemuaMapel = 0;
-            let countMapel = 0;
-
-            html += `
-            <tr>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${idx + 1}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; font-weight:bold;">${s.nama}</td>`;
-
-            daftarMapel.forEach(mp => {
-                const nilaiMp = dataNilai[s.id] && dataNilai[s.id][mp] !== undefined ? dataNilai[s.id][mp] : null;
-                if(nilaiMp !== null){
-                    totalSemuaMapel += nilaiMp;
-                    countMapel++;
-                    html += `<td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${nilaiMp.toFixed(1)}</td>`;
-                } else {
-                    html += `<td style="padding:6px 8px; border:1px solid #ddd; text-align:center; color:#aaa;">-</td>`;
-                }
-            });
-
-            const rataRataKeseluruhan = countMapel > 0 ? (totalSemuaMapel / countMapel).toFixed(1) : "-";
-            html += `<td style="padding:6px 8px; border:1px solid #ddd; text-align:center; font-weight:bold; background:#f5f7f6;">${rataRataKeseluruhan}</td>
-            </tr>`;
-        });
-
-        html += `</tbody></table></div></div>`;
-        areaElement.innerHTML = html;
-
-    } catch(err) {
-        areaElement.innerHTML = `<div class="error">Gagal memuat rekap nilai per kelas: ${err.message}</div>`;
+        await updateDoc(doc(db, "santri", id), { status: statusBaru });
+        target.status = statusBaru;
+        tampilkanKelolaSantri();
+        toast(`Status santri diperbarui menjadi ${statusBaru}`);
+    } catch(error){
+        toast("Gagal mengubah status");
+        tampilError(error.message);
     }
-}
-
-async function tampilkanLaporanNilaiPerMapel(kelas, mapel, areaElement){
-    let santriAktif = santri.filter(s => s.status !== "nonaktif");
-    if(kelas){
-        santriAktif = santriAktif.filter(s => s.kelas === kelas);
-    }
-
-    if(santriAktif.length === 0){
-        areaElement.innerHTML = `<div class="error">Data santri tidak ditemukan.</div>`;
-        return;
-    }
-
-    santriAktif.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
-
-    try {
-        let q;
-        if(kelas){
-            q = query(collection(db, "nilai"), where("kelas", "==", kelas), where("mapel", "==", mapel));
-        } else {
-            q = query(collection(db, "nilai"), where("mapel", "==", mapel));
-        }
-        const snap = await getDocs(q);
-        let existingData = {};
-        snap.forEach(d => {
-            const val = d.data();
-            existingData[val.santriId] = val;
-        });
-
-        let html = `
-        <div style="background:white; border-radius:14px; padding:15px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-            <div style="font-weight:bold; font-size:14px; margin-bottom:10px; color:#075E54;">
-                📋 Rekap Nilai Mapel: ${mapel.toUpperCase()} ${kelas ? `(${kelas})` : '(Semua Kelas)'}
-            </div>
-            <div class="table-responsive">
-                <table style="width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap;">
-                    <thead>
-                        <tr style="background:#075E54; color:white; text-align:center;">
-                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                            <th style="padding:8px; border:1px solid #ddd;">Kelas</th>
-                            <th style="padding:8px; border:1px solid #ddd;">Rata-Rata Tugas</th>
-                            <th style="padding:8px; border:1px solid #ddd;">Rata-Rata UH</th>
-                            <th style="padding:8px; border:1px solid #ddd;">UTS</th>
-                            <th style="padding:8px; border:1px solid #ddd;">UAS</th>
-                            <th style="padding:8px; border:1px solid #ddd;">Nilai Akhir</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-        santriAktif.forEach(s => {
-            const dataS = existingData[s.id] || {};
-            
-            let tugasSum = 0, tugasCount = 0;
-            let uhSum = 0, uhCount = 0;
-            
-            Object.keys(dataS).forEach(k => {
-                if(k.startsWith("tugas_") && dataS[k] !== null){
-                    tugasSum += Number(dataS[k]);
-                    tugasCount++;
-                }
-                if(k.startsWith("uh_") && dataS[k] !== null){
-                    uhSum += Number(dataS[k]);
-                    uhCount++;
-                }
-            });
-
-            const avgTugas = tugasCount > 0 ? (tugasSum / tugasCount) : null;
-            const avgUh = uhCount > 0 ? (uhSum / uhCount) : null;
-            const uts = dataS.uts !== undefined && dataS.uts !== null ? Number(dataS.uts) : null;
-            const uas = dataS.uas !== undefined && dataS.uas !== null ? Number(dataS.uas) : null;
-
-            let components = [];
-            if(avgTugas !== null) components.push(avgTugas);
-            if(avgUh !== null) components.push(avgUh);
-            if(uts !== null) components.push(uts);
-            if(uas !== null) components.push(uas);
-
-            const finalScore = components.length > 0 ? (components.reduce((a, b) => a + b, 0) / components.length).toFixed(1) : "-";
-
-            html += `
-            <tr>
-                <td style="padding:6px 8px; border:1px solid #ddd; font-weight:bold;">${s.nama}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${s.kelas}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${avgTugas !== null ? avgTugas.toFixed(1) : '-'}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${avgUh !== null ? avgUh.toFixed(1) : '-'}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${uts !== null ? uts : '-'}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center;">${uas !== null ? uas : '-'}</td>
-                <td style="padding:6px 8px; border:1px solid #ddd; text-align:center; font-weight:bold; background:#e5f2ef; color:#075E54;">${finalScore}</td>
-            </tr>`;
-        });
-
-        html += `</tbody></table></div></div>`;
-        areaElement.innerHTML = html;
-
-    } catch(err) {
-        areaElement.innerHTML = `<div class="error">Gagal memuat rekap nilai per mapel: ${err.message}</div>`;
-    }
-}
+};
 </script>
+
 </body>
 </html>
