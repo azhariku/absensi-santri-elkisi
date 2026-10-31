@@ -486,14 +486,14 @@ body{
             <div style="background:white; padding:15px; border-radius:17px; box-shadow:0 3px 12px rgba(0,0,0,.04); margin-bottom:15px;">
                 <div class="form-group">
                     <label>Filter Kelas</label>
-                    <select id="kelasNilai" class="input-field" onchange="perbaruiMapelNilai(); muatDataInputNilai()">
+                    <select id="kelasNilai" class="input-field" onchange="muatDataInputNilai()">
                         <option value="">-- Pilih Kelas --</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label>Mata Pelajaran</label>
-                    <select id="mapelNilai" class="input-field" onchange="muatDataInputNilai()"><option value="">-- Pilih Kelas Terlebih Dahulu --</option></select>
+                    <input type="text" id="mapelNilai" class="input-field" placeholder="Contoh: Fiqih / Bahasa Arab" onchange="muatDataInputNilai()">
                 </div>
 
                 <div class="form-group">
@@ -512,9 +512,8 @@ body{
                 </div>
             </div>
 
-            <div class="file-info" style="margin-bottom:12px">Pilih Tugas ke-1, ke-2, dan seterusnya. Semua nilai tersimpan terpisah dan muncul otomatis dalam rekap.</div>
-    <div id="areaInputNilai">
-                <div class="loading">Pilih kelas dan mata pelajaran terlebih dahulu.</div>
+            <div id="areaInputNilai">
+                <div class="loading">Pilih kelas dan isi mata pelajaran terlebih dahulu.</div>
             </div>
 
             <button type="button" class="btn-primary" id="btnSimpanNilai" onclick="simpanSemuaNilai()" style="display:none; margin-top:15px;">
@@ -551,12 +550,12 @@ body{
 
                 <div class="form-group" id="groupMapelNav" style="display:none;">
                     <label>Mata Pelajaran</label>
-                    <select id="mapelLaporanNav" class="input-field"><option value="">-- Pilih Mata Pelajaran --</option></select>
+                    <input type="text" id="mapelLaporanNav" class="input-field" placeholder="Contoh: Fiqih (Wajib Diisi)">
                 </div>
 
                 <div class="form-group">
                     <label>Filter Kelas</label>
-                    <select id="kelasLaporanNav" class="input-field" onchange="perbaruiMapelLaporan()">
+                    <select id="kelasLaporanNav" class="input-field">
                         <option value="">Semua Kelas</option>
                     </select>
                 </div>
@@ -566,8 +565,7 @@ body{
                 </button>
             </div>
 
-            <div class="file-info" style="margin-bottom:12px">Untuk melihat nilai: pilih <b>Rekap Nilai Per Mapel</b>, kelas, dan mata pelajaran. Geser tabel ke kanan untuk melihat seluruh tugas dan UH.</div>
-    <div id="areaHasilLaporan"></div>
+            <div id="areaHasilLaporan"></div>
         </section>
     </div>
 
@@ -1033,34 +1031,11 @@ window.pindahHalaman = function(halaman){
     }
 };
 
-// Daftar mata pelajaran otomatis diambil dari jadwal yang sudah tertanam.
-function daftarMapelKelas(kelas){
-    const rows = JADWAL_DATA[kelas] || [];
-    const nama = new Set();
-    rows.forEach(row => Object.values(row.pelajaran || {}).forEach(p => {
-        if(p && p.mapel && !["Apel Pagi", "Bela Diri"].includes(p.mapel)) nama.add(p.mapel);
-    }));
-    return [...nama].sort((a,b)=>a.localeCompare(b,'id'));
-}
-function isiPilihanMapel(id, kelas){
-    const el = document.getElementById(id);
-    const sebelumnya = el.value;
-    let mapel = kelas ? daftarMapelKelas(kelas) : [...new Set(Object.keys(JADWAL_DATA).flatMap(daftarMapelKelas))].sort((a,b)=>a.localeCompare(b,'id'));
-    el.innerHTML = '<option value="">-- Pilih Mata Pelajaran --</option>' + mapel.map(m => `<option value="${m.toLowerCase().replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${m.replace(/&/g,'&amp;')}</option>`).join('');
-    if([...el.options].some(o=>o.value===sebelumnya)) el.value=sebelumnya;
-    else if(mapel.length === 1) el.value=mapel[0].toLowerCase();
-}
-window.perbaruiMapelNilai = function(){isiPilihanMapel('mapelNilai',document.getElementById('kelasNilai').value)};
-window.perbaruiMapelLaporan = function(){isiPilihanMapel('mapelLaporanNav',document.getElementById('kelasLaporanNav').value)};
 function siapkanHalamanNilai(){
     const selectNilai = document.getElementById("kelasNilai");
-    const kelasSebelumnya = selectNilai.value;
     const selectFilter = document.getElementById("filterKelas");
     selectNilai.innerHTML = selectFilter.innerHTML;
-    if([...selectNilai.options].some(o=>o.value===kelasSebelumnya)) selectNilai.value=kelasSebelumnya;
     cekTampilKePilihan();
-    perbaruiMapelNilai();
-    muatDataInputNilai();
 }
 
 window.cekTampilKePilihan = function(){
@@ -1084,13 +1059,13 @@ window.muatDataInputNilai = async function(){
     const kelas = document.getElementById("kelasNilai").value;
     const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
     const kat = document.getElementById("kategoriNilai").value;
-    const ke = Math.max(1, Math.floor(Number(document.getElementById("keNilai").value) || 1));
+    const ke = document.getElementById("keNilai").value || 1;
     
     const area = document.getElementById("areaInputNilai");
     const btnSimpan = document.getElementById("btnSimpanNilai");
 
     if(!kelas || !mapel){
-        area.innerHTML = `<div class="loading">Pilih kelas dan mata pelajaran terlebih dahulu.</div>`;
+        area.innerHTML = `<div class="loading">Pilih kelas dan isi mata pelajaran terlebih dahulu.</div>`;
         btnSimpan.style.display = "none";
         return;
     }
@@ -1111,18 +1086,14 @@ window.muatDataInputNilai = async function(){
 
     let existingData = {};
     try {
-        // Baca semua data agar nilai lama tetap terbaca walaupun mapel dahulu disimpan beda kapitalisasi.
-        const snap = await getDocs(collection(db, "nilai"));
+        const q = query(collection(db, "nilai"), where("kelas", "==", kelas), where("mapel", "==", mapel));
+        const snap = await getDocs(q);
         snap.forEach(d => {
             const val = d.data();
-            if(val.kelas === kelas && String(val.mapel || '').trim().toLowerCase() === mapel && val.santriId){
-                existingData[val.santriId] = {...(existingData[val.santriId] || {}), ...val};
-            }
+            existingData[val.santriId] = val;
         });
     } catch(err) {
-        area.textContent = "Gagal memuat nilai: " + err.message;
-        btnSimpan.style.display = "none";
-        return;
+        console.error("Gagal mengambil data nilai:", err);
     }
 
     let html = `<div style="background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
@@ -1155,7 +1126,7 @@ window.simpanSemuaNilai = async function(){
     const kelas = document.getElementById("kelasNilai").value;
     const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
     const kat = document.getElementById("kategoriNilai").value;
-    const ke = Math.max(1, Math.floor(Number(document.getElementById("keNilai").value) || 1));
+    const ke = document.getElementById("keNilai").value || 1;
     const inputs = document.querySelectorAll(".input-score");
 
     if(!kelas || !mapel) return;
@@ -1164,11 +1135,6 @@ window.simpanSemuaNilai = async function(){
     if(kat === "tugas") fieldKey = `tugas_${ke}`;
     if(kat === "uh") fieldKey = `uh_${ke}`;
 
-    const invalid = [...inputs].some(inp => inp.value !== '' && (!Number.isFinite(Number(inp.value)) || Number(inp.value)<0 || Number(inp.value)>100));
-    if(invalid){toast("Nilai harus berada antara 0 sampai 100");return;}
-    if(inputs.length === 0){toast("Belum ada santri untuk disimpan");return;}
-    const tombol = document.getElementById('btnSimpanNilai');
-    tombol.disabled = true;
     try {
         toast("Menyimpan nilai...");
         const batch = writeBatch(db);
@@ -1193,7 +1159,7 @@ window.simpanSemuaNilai = async function(){
         toast("Semua nilai berhasil disimpan ✓");
     } catch(err) {
         toast("Gagal menyimpan nilai: " + err.message);
-    } finally { tombol.disabled = false; }
+    }
 };
 
 // NAVIGASI KONTROL INPUT LAPORAN
@@ -1225,12 +1191,8 @@ function siapkanHalamanLaporan(){
     document.getElementById("blnLaporanNav").value = formatBulan;
 
     const selectLaporan = document.getElementById("kelasLaporanNav");
-    const kelasSebelumnya = selectLaporan.value;
     const selectFilter = document.getElementById("filterKelas");
     selectLaporan.innerHTML = selectFilter.innerHTML;
-    if([...selectLaporan.options].some(o=>o.value===kelasSebelumnya)) selectLaporan.value=kelasSebelumnya;
-    perbaruiMapelLaporan();
-    sesuaikanInputLaporanNav();
 }
 
 // Bangun kotak daftar santri yang belum melakukan absensi sama sekali
@@ -1369,8 +1331,8 @@ window.tampilkanHasilLaporan = async function(){
             const mapelTerpilih = document.getElementById("mapelLaporanNav").value.trim().toLowerCase();
 
             if(!mapelTerpilih){
-                toast("Pilih mata pelajaran terlebih dahulu!");
-                area.innerHTML = `<div class="loading">Pilih mata pelajaran untuk melihat rekap nilai.</div>`;
+                toast("Isi Mata Pelajaran terlebih dahulu!");
+                area.innerHTML = `<div class="loading">Ketik nama mata pelajaran untuk melihat rekap nilai.</div>`;
                 return;
             }
 
@@ -1379,36 +1341,62 @@ window.tampilkanHasilLaporan = async function(){
             let dataNilai = [];
             snapshot.forEach(doc => dataNilai.push(doc.data()));
 
-            // Cari semua nomor tugas dan UH yang benar-benar tersimpan.
-            const catatanMentah = dataNilai.filter(n => String(n.mapel || '').trim().toLowerCase() === mapelTerpilih && daftarSantri.some(s=>s.id===n.santriId));
-            const gabungan = new Map();
-            catatanMentah.forEach(n => gabungan.set(n.santriId, {...(gabungan.get(n.santriId) || {}), ...n}));
-            const catatan = [...gabungan.values()];
-            const nomor = prefix => [...new Set(catatan.flatMap(n => Object.keys(n).filter(k=>new RegExp('^'+prefix+'_[0-9]+$').test(k)).map(k=>Number(k.split('_')[1]))))].sort((a,b)=>a-b);
-            const tugas = nomor('tugas'), uhs = nomor('uh');
-            const th = (label, extra='') => `<th style="padding:8px; border:1px solid #ddd; white-space:nowrap;${extra}">${label}</th>`;
-            let html = `<div style="background:white; padding:12px; border-radius:14px; margin-bottom:10px; font-size:13px;">📚 <b>${mapelTerpilih.toUpperCase()}</b> · ${kelasTerpilihLaporan || 'Semua Kelas'}<div style="font-size:11px;color:#68736f;margin-top:5px;">Geser tabel ke samping untuk melihat seluruh Tugas dan UH. Nilai akhir = rata-rata komponen yang tersedia.</div></div>
-            <div style="overflow-x:auto; background:white; border-radius:14px; padding:8px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-            <table style="border-collapse:collapse;font-size:12px;text-align:center;white-space:nowrap;min-width:100%;">
-            <thead><tr style="background:#075E54;color:white;">${th('Nama Santri','text-align:left;position:sticky;left:0;background:#075E54;')}
-            ${tugas.map(n=>th('Tugas '+n)).join('')}${th('Rata Tugas')}
-            ${uhs.map(n=>th('UH '+n)).join('')}${th('Rata UH')}${th('UTS')}${th('UAS')}${th('Nilai Akhir','background:#0e6231;')}</tr></thead><tbody>`;
-            const tampil = v => typeof v === 'number' && Number.isFinite(v) ? v : '-';
-            const rata = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*100)/100 : null;
-            daftarSantri.forEach(s=>{
-                const rec = catatan.find(n=>n.santriId===s.id) || {};
-                const nilaiTugas = tugas.map(n=>rec['tugas_'+n]);
-                const nilaiUH = uhs.map(n=>rec['uh_'+n]);
-                const rt = rata(nilaiTugas.filter(v=>typeof v==='number'));
-                const ru = rata(nilaiUH.filter(v=>typeof v==='number'));
-                const akhir = rata([rt,ru,rec.uts,rec.uas].filter(v=>typeof v==='number'));
-                const td = (v,extra='')=>`<td style="padding:8px;border:1px solid #ddd;${extra}">${tampil(v)}</td>`;
-                html += `<tr><td style="padding:8px;border:1px solid #ddd;text-align:left;font-weight:bold;position:sticky;left:0;background:white;">${s.nama}</td>
-                ${nilaiTugas.map(v=>td(v)).join('')}${td(rt,'font-weight:bold;background:#f1f7f5;')}
-                ${nilaiUH.map(v=>td(v)).join('')}${td(ru,'font-weight:bold;background:#f1f7f5;')}
-                ${td(rec.uts)}${td(rec.uas)}${td(akhir,'font-weight:bold;background:#e5f2ef;')}</tr>`;
+            let html = `
+            <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
+                <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
+                    <thead>
+                        <tr style="background:#075E54; color:white;">
+                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
+                            <th style="padding:6px; border:1px solid #ddd;">Rata Tugas</th>
+                            <th style="padding:6px; border:1px solid #ddd;">Rata UH</th>
+                            <th style="padding:6px; border:1px solid #ddd;">UTS</th>
+                            <th style="padding:6px; border:1px solid #ddd;">UAS</th>
+                            <th style="padding:6px; border:1px solid #ddd; background:#0e6231;">Nilai Akhir</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            daftarSantri.forEach(s => {
+                const rec = dataNilai.find(n => n.santriId === s.id && n.mapel === mapelTerpilih);
+                
+                let avgTugas = "-", avgUH = "-", uts = "-", uas = "-";
+
+                if(rec){
+                    const listTugas = Object.keys(rec)
+                        .filter(k => k.startsWith("tugas_") && typeof rec[k] === "number")
+                        .map(k => rec[k]);
+                    if(listTugas.length > 0){
+                        avgTugas = Math.round(listTugas.reduce((a,b)=>a+b, 0) / listTugas.length);
+                    }
+
+                    const listUH = Object.keys(rec)
+                        .filter(k => k.startsWith("uh_") && typeof rec[k] === "number")
+                        .map(k => rec[k]);
+                    if(listUH.length > 0){
+                        avgUH = Math.round(listUH.reduce((a,b)=>a+b, 0) / listUH.length);
+                    }
+
+                    uts = typeof rec.uts === "number" ? rec.uts : "-";
+                    uas = typeof rec.uas === "number" ? rec.uas : "-";
+                }
+
+                const komponenAkhir = [avgTugas, avgUH, uts, uas].filter(v => typeof v === "number");
+                const nilaiAkhir = komponenAkhir.length > 0 
+                    ? Math.round(komponenAkhir.reduce((a, b) => a + b, 0) / komponenAkhir.length) 
+                    : "-";
+
+                html += `
+                <tr>
+                    <td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold;">${s.nama}</td>
+                    <td style="padding:6px; border:1px solid #ddd;">${avgTugas}</td>
+                    <td style="padding:6px; border:1px solid #ddd;">${avgUH}</td>
+                    <td style="padding:6px; border:1px solid #ddd;">${uts}</td>
+                    <td style="padding:6px; border:1px solid #ddd;">${uas}</td>
+                    <td style="padding:6px; border:1px solid #ddd; font-weight:bold; background:#e5f2ef;">${nilaiAkhir}</td>
+                </tr>`;
             });
-            html += '</tbody></table></div>';
+
+            html += `</tbody></table></div>`;
             area.innerHTML = html;
             return;
         }
