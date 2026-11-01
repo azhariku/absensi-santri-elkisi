@@ -486,14 +486,16 @@ body{
             <div style="background:white; padding:15px; border-radius:17px; box-shadow:0 3px 12px rgba(0,0,0,.04); margin-bottom:15px;">
                 <div class="form-group">
                     <label>Filter Kelas</label>
-                    <select id="kelasNilai" class="input-field" onchange="muatDataInputNilai()">
+                    <select id="kelasNilai" class="input-field" onchange="perbaruiPilihanMapelNilai()">
                         <option value="">-- Pilih Kelas --</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label>Mata Pelajaran</label>
-                    <input type="text" id="mapelNilai" class="input-field" placeholder="Contoh: Fiqih / Bahasa Arab" onchange="muatDataInputNilai()">
+                    <input type="text" id="mapelNilai" class="input-field" list="daftarMapelNilai" autocomplete="off" placeholder="Pilih dari saran atau ketik mapel baru" onchange="muatDataInputNilai()">
+                    <datalist id="daftarMapelNilai"></datalist>
+                    <div class="file-info">Pilih nama mapel dari saran otomatis, atau ketik sendiri. Nama mapel lama tetap dapat diketik seperti sebelumnya.</div>
                 </div>
 
                 <div class="form-group">
@@ -1052,6 +1054,32 @@ window.cekTampilKePilihan = function(){
     } else {
         grpKe.style.display = "none";
     }
+};
+
+// Saran mapel dari jadwal kelas; input teks lama dipertahankan agar pembacaan nilai kompatibel.
+window.perbaruiPilihanMapelNilai = async function(){
+    const kelas = document.getElementById("kelasNilai").value;
+    const input = document.getElementById("mapelNilai");
+    const daftar = document.getElementById("daftarMapelNilai");
+    input.value = "";
+    const namaMapel = new Set();
+    const normal = v => String(v || "").trim();
+    // Nama kelas pada data santri bisa lebih lengkap daripada kunci jadwal.
+    const jadwalKelas = JADWAL_DATA[kelas] || JADWAL_DATA[kelas.replace(/\s*Azhari\s*/i, " ").replace(/\s*(Putra|Pa)\s*$/i, " Pa").replace(/\s*(Putri|Pi)\s*$/i, " Pi").trim()] || [];
+    jadwalKelas.forEach(j => Object.values(j.pelajaran || {}).forEach(p => {
+        if(p && p.mapel && !["Apel Pagi", "Bela Diri"].includes(p.mapel)) namaMapel.add(normal(p.mapel));
+    }));
+    // Tambahkan ejaan mapel yang benar-benar pernah digunakan untuk kelas ini.
+    if(kelas){
+        try {
+            const snap = await getDocs(query(collection(db, "nilai"), where("kelas", "==", kelas)));
+            snap.forEach(d => { const m = d.data().mapel; if(m) namaMapel.add(normal(m)); });
+        } catch(err) { console.warn("Saran mapel historis tidak tersedia:", err); }
+    }
+    daftar.replaceChildren(...[...namaMapel].sort((a,b)=>a.localeCompare(b,'id')).map(m => {
+        const opt=document.createElement("option"); opt.value=m; return opt;
+    }));
+    muatDataInputNilai();
 };
 
 // FUNGSI INPUT NILAI SANTRI (Diurutkan A-Z)
