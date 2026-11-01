@@ -486,19 +486,14 @@ body{
             <div style="background:white; padding:15px; border-radius:17px; box-shadow:0 3px 12px rgba(0,0,0,.04); margin-bottom:15px;">
                 <div class="form-group">
                     <label>Filter Kelas</label>
-                    <select id="kelasNilai" class="input-field" onchange="document.getElementById('mapelNilai').value=''; perbaruiPilihanMapelNilai()">
+                    <select id="kelasNilai" class="input-field" onchange="muatDataInputNilai()">
                         <option value="">-- Pilih Kelas --</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label>Mata Pelajaran</label>
-                    <select id="pilihanMapelNilai" class="input-field" onchange="pilihMapelNilai()"><option value="">-- Pilih Kelas Terlebih Dahulu --</option></select>
-                     <div id="wadahMapelManual" style="display:none; margin-top:10px;">
-                         <label for="mapelManualNilai">Nama Mata Pelajaran Tambahan</label>
-                         <input type="text" id="mapelManualNilai" class="input-field" placeholder="Ketik nama mapel tambahan" oninput="pilihMapelNilai()">
-                     </div>
-                     <input type="hidden" id="mapelNilai">
+                    <input type="text" id="mapelNilai" class="input-field" placeholder="Contoh: Fiqih / Bahasa Arab" onchange="muatDataInputNilai()">
                 </div>
 
                 <div class="form-group">
@@ -1041,40 +1036,7 @@ function siapkanHalamanNilai(){
     const selectFilter = document.getElementById("filterKelas");
     selectNilai.innerHTML = selectFilter.innerHTML;
     cekTampilKePilihan();
-    perbaruiPilihanMapelNilai();
 }
-
-// Daftar mapel berasal dari jadwal kelas yang telah tersedia di aplikasi.
-window.perbaruiPilihanMapelNilai = function(){
-    const kelas = document.getElementById("kelasNilai").value;
-    const pilihan = document.getElementById("pilihanMapelNilai");
-    const sebelumnya = document.getElementById("mapelNilai").value;
-    const kunci = normalisasiKunciKelas(kelas);
-    const jadwal = kunci ? (JADWAL_DATA[kunci] || []) : [];
-    const mapel = [...new Set(jadwal.flatMap(j => Object.values(j.pelajaran || {}).filter(Boolean).map(p => p.mapel).filter(Boolean)))]
-        .filter(n => !["Apel Pagi"].includes(n)).sort((a,b) => a.localeCompare(b,"id"));
-    pilihan.replaceChildren();
-    const tambahOpsi = (nilai, teks) => pilihan.add(new Option(teks, nilai));
-    tambahOpsi("", kelas ? "-- Pilih Mata Pelajaran --" : "-- Pilih Kelas Terlebih Dahulu --");
-    mapel.forEach(n => tambahOpsi(n.toLowerCase(), n));
-    tambahOpsi("__manual__", "+ Tambah Mapel Manual");
-    pilihan.value = mapel.some(n => n.toLowerCase() === sebelumnya) ? sebelumnya : "";
-    if(sebelumnya && !mapel.some(n => n.toLowerCase() === sebelumnya)){
-        pilihan.value = "__manual__";
-        document.getElementById("mapelManualNilai").value = sebelumnya;
-    } else {
-        document.getElementById("mapelManualNilai").value = "";
-    }
-    pilihMapelNilai();
-};
-
-window.pilihMapelNilai = function(){
-    const pilihan = document.getElementById("pilihanMapelNilai").value;
-    const manual = pilihan === "__manual__";
-    document.getElementById("wadahMapelManual").style.display = manual ? "block" : "none";
-    document.getElementById("mapelNilai").value = (manual ? document.getElementById("mapelManualNilai").value : pilihan).trim().toLowerCase();
-    muatDataInputNilai();
-};
 
 window.cekTampilKePilihan = function(){
     const kat = document.getElementById("kategoriNilai").value;
