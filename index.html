@@ -420,6 +420,14 @@ body{
 
         <section class="section">
             <div class="section-title">Absensi Santri</div>
+            <div class="date-selector" style="background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 3px 12px rgba(0,0,0,.04);">
+                <label for="tanggalAbsensi" style="display:block;font-size:13px;font-weight:bold;margin-bottom:7px;">Tanggal Absensi</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="date" id="tanggalAbsensi" class="input-field" style="flex:1;min-width:0;box-shadow:none;background:#f4f7f6;" aria-label="Tanggal absensi">
+                    <button type="button" id="btnHariIni" class="btn-action btn-import" style="white-space:nowrap;">Hari Ini</button>
+                </div>
+                <div id="infoTanggalAbsensi" role="status" style="font-size:12px;color:#68736f;margin-top:8px;"></div>
+            </div>
 
             <input class="search" type="text" id="search" placeholder="🔍 Cari nama santri...">
             <select id="filterKelas" class="search" style="margin-top:10px;">
@@ -689,11 +697,50 @@ let santri = [];
 let absensiHariIni = {};
 let user = null;
 let jamPelajaran = "1";
-let tanggalHariIni = "";
+let tanggalHariIni = ""; // Tanggal absensi aktif, bukan selalu tanggal kalender saat ini
+let versiMuatAbsensi = 0;
+let sedangMengubahAbsensi = false;
+let sedangMemuatTanggal = false;
 let kelasTerpilih = "";
 
 const sekarang = new Date();
-tanggalHariIni = sekarang.toLocaleDateString("sv-SE");
+// Format tanggal lokal, menghindari pergeseran hari akibat UTC.
+function tanggalLokal(date){
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+const tanggalSekarang = tanggalLokal(sekarang);
+tanggalHariIni = tanggalSekarang;
+const inputTanggalAbsensi = document.getElementById("tanggalAbsensi");
+inputTanggalAbsensi.value = tanggalHariIni;
+inputTanggalAbsensi.max = tanggalSekarang;
+function perbaruiLabelTanggal(){
+    const tanggal = new Date(`${tanggalHariIni}T12:00:00`);
+    const label = tanggal.toLocaleDateString('id-ID', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    document.getElementById('infoTanggalAbsensi').textContent = tanggalHariIni === tanggalSekarang
+        ? `Absensi hari ini: ${label}`
+        : `ARSIP / KOREKSI: ${label}. Setiap perubahan disimpan pada tanggal ini, bukan hari ini.`;
+}
+perbaruiLabelTanggal();
+function aturTombolAbsensi(nonaktif){
+    document.querySelectorAll('.status, button[onclick="hadirkanSemuaSantri()"], button[onclick="resetSemuaAbsensiSantri()"], .btn-jam').forEach(el => el.disabled = nonaktif);
+}
+async function gantiTanggalAbsensi(tanggal){
+    if(sedangMengubahAbsensi || sedangMemuatTanggal){ toast('Tunggu proses sebelumnya selesai.'); inputTanggalAbsensi.value = tanggalHariIni; return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(tanggal) || !Number.isFinite(new Date(`${tanggal}T12:00:00`).getTime()) || tanggal > tanggalSekarang){
+        toast('Pilih tanggal yang valid dan tidak melebihi hari ini.'); inputTanggalAbsensi.value = tanggalHariIni; return;
+    }
+    tanggalHariIni = tanggal;
+    inputTanggalAbsensi.value = tanggal;
+    perbaruiLabelTanggal();
+    document.getElementById('studentList').innerHTML = '<div class="loading">Memuat absensi tanggal terpilih...</div>';
+    sedangMemuatTanggal = true;
+    aturTombolAbsensi(true);
+    try { await ambilAbsensi(); filterSantri(); hitungStatistik(); perbaruiInfoJadwal(); }
+    catch(e){ document.getElementById('studentList').innerHTML = '<div class="error">Gagal memuat absensi tanggal ini. Coba pilih kembali.</div>'; }
+    finally { sedangMemuatTanggal = false; aturTombolAbsensi(false); }
+}
+inputTanggalAbsensi.addEventListener('change', e => gantiTanggalAbsensi(e.target.value));
+document.getElementById('btnHariIni').addEventListener('click', () => gantiTanggalAbsensi(tanggalSekarang));
 
 document.getElementById("tanggal").innerText = sekarang.toLocaleDateString("id-ID", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
@@ -752,12 +799,16 @@ async function ambilDataSantri(){
 
 async function ambilAbsensi(){
     try {
+        const tanggalQuery = tanggalHariIni;
+        const jamQuery = jamPelajaran;
         const q = query(
             collection(db, "absensi"), 
-            where("tanggal", "==", tanggalHariIni),
-            where("jam", "==", jamPelajaran)
+            where("tanggal", "==", tanggalQuery),
+            where("jam", "==", jamQuery)
         );
+        const nomorMuat = ++versiMuatAbsensi;
         const snapshot = await getDocs(q);
+        if(nomorMuat !== versiMuatAbsensi || tanggalQuery !== tanggalHariIni || jamQuery !== jamPelajaran) return;
         absensiHariIni = {};
         snapshot.forEach(doc => {
             const data = doc.data();
@@ -786,7 +837,7 @@ function normalisasiKunciKelas(kelasStr){
 // Nama hari (Ahad/Jumat tidak ada jadwal mapel)
 function namaHariIni(){
     const namaHari = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    return namaHari[new Date().getDay()];
+    return namaHari[new Date(`${tanggalHariIni}T12:00:00`).getDay()];
 }
 
 function perbaruiInfoJadwal(){
@@ -952,19 +1003,23 @@ function tampilkanKelolaSantri(keyword = ""){
 }
 
 window.ubahStatus = async function(santriId, status){
+    if(sedangMengubahAbsensi || sedangMemuatTanggal) { toast('Tunggu proses sebelumnya selesai.'); return; }
+    sedangMengubahAbsensi = true;
+    const tanggalSimpan = tanggalHariIni;
+    const jamSimpan = jamPelajaran;
     try{
-        const documentId = `${tanggalHariIni}_Jam${jamPelajaran}_${santriId}`;
+        const documentId = `${tanggalSimpan}_Jam${jamSimpan}_${santriId}`;
 
         await setDoc(doc(db, "absensi", documentId), {
             santriId: santriId,
-            tanggal: tanggalHariIni,
-            jam: jamPelajaran,
+            tanggal: tanggalSimpan,
+            jam: jamSimpan,
             status: status,
             userId: user.uid,
             updatedAt: new Date().toISOString()
         });
 
-        absensiHariIni[santriId] = status;
+        if(tanggalSimpan === tanggalHariIni && jamSimpan === jamPelajaran) absensiHariIni[santriId] = status;
         filterSantri();
         hitungStatistik();
         toast(`Absensi Jam ke-${jamPelajaran} tersimpan ✓`);
@@ -1830,6 +1885,7 @@ document.getElementById("filterKelas").addEventListener("change", function(){
 
 // 4. Fungsi Pilih Jam Pelajaran (Tombol Horizontal)
 window.pilihJam = async function(nilaiJam, element) {
+    if(sedangMengubahAbsensi || sedangMemuatTanggal){ toast('Tunggu proses sebelumnya selesai.'); return; }
     jamPelajaran = nilaiJam;
 
     // Ubah status kelas tombol aktif
@@ -1854,6 +1910,8 @@ window.pilihJam = async function(nilaiJam, element) {
 
 // 5. Fungsi Hadirkan Semua Santri
 window.hadirkanSemuaSantri = async function(){
+    if(sedangMengubahAbsensi || sedangMemuatTanggal){ toast('Masih ada proses absensi.'); return; }
+    const tanggalTerpilih = tanggalHariIni;
     const jamTerpilih = jamPelajaran;
     const kelasTerpilih = document.getElementById("filterKelas").value;
     const kataKunci = document.getElementById("search").value.toLowerCase().trim();
@@ -1875,16 +1933,18 @@ window.hadirkanSemuaSantri = async function(){
     }
     if(!confirm(`Tandai HADIR untuk ${daftarTarget.length} santri yang BELUM DIABSEN pada ${jamTerpilih === "10" ? "Subuh" : "Jam " + jamTerpilih}? Status yang sudah ada tidak diubah.`)) return;
 
+    sedangMengubahAbsensi = true;
+    aturTombolAbsensi(true);
     try {
         toast("Sedang memproses...");
 
         const janjiSimpan = daftarTarget.map(async (s) => {
-            const documentId = `${tanggalHariIni}_Jam${jamTerpilih}_${s.id}`;
+            const documentId = `${tanggalTerpilih}_Jam${jamTerpilih}_${s.id}`;
             const refAbsen = doc(db, "absensi", documentId);
             
             await setDoc(refAbsen, {
                 santriId: s.id,
-                tanggal: tanggalHariIni,
+                tanggal: tanggalTerpilih,
                 jam: jamTerpilih,
                 status: "hadir",
                 userId: user.uid,
@@ -1907,11 +1967,13 @@ window.hadirkanSemuaSantri = async function(){
         filterSantri();
         hitungStatistik();
         toast("Sebagian penyimpanan mungkin gagal: " + err.message);
-    }
+    } finally { sedangMengubahAbsensi = false; aturTombolAbsensi(false); }
 };
 
 // 6. Fungsi Reset / Hapus Status Absensi
 window.resetSemuaAbsensiSantri = async function(){
+    if(sedangMengubahAbsensi || sedangMemuatTanggal){ toast('Masih ada proses absensi.'); return; }
+    const tanggalTerpilih = tanggalHariIni;
     const jamTerpilih = jamPelajaran;
     const kelasTerpilih = document.getElementById("filterKelas").value;
     const kataKunci = document.getElementById("search").value.toLowerCase().trim();
@@ -1939,8 +2001,9 @@ window.resetSemuaAbsensiSantri = async function(){
         toast("Reset dibatalkan. Tidak ada data yang diubah.");
         return;
     }
+    sedangMengubahAbsensi = true;
+    aturTombolAbsensi(true);
     const tombolReset = document.querySelector('button[onclick="resetSemuaAbsensiSantri()"]');
-    if(tombolReset?.disabled) return;
     if(tombolReset) tombolReset.disabled = true;
     try {
         toast("Mengosongkan absensi...");
@@ -1949,7 +2012,7 @@ window.resetSemuaAbsensiSantri = async function(){
         let count = 0;
 
         for(const s of daftarTarget){
-            const documentId = `${tanggalHariIni}_Jam${jamTerpilih}_${s.id}`;
+            const documentId = `${tanggalTerpilih}_Jam${jamTerpilih}_${s.id}`;
             const refAbsen = doc(db, "absensi", documentId);
             
             batch.delete(refAbsen);
@@ -1980,6 +2043,8 @@ window.resetSemuaAbsensiSantri = async function(){
         filterSantri();
         hitungStatistik();
     } finally {
+        sedangMengubahAbsensi = false;
+        aturTombolAbsensi(false);
         if(tombolReset) tombolReset.disabled = false;
     }
 };
