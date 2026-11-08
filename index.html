@@ -1385,6 +1385,19 @@ function buatBoxGuruBelumAbsen(infoGuru){
     </div>`;
 }
 
+// Periode laporan pekanan: Senin sampai Ahad, termasuk lintas bulan/tahun.
+function rentangPekanISO(tanggalISO){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(tanggalISO)) return null;
+    const tanggal = new Date(tanggalISO + "T00:00:00Z");
+    if(Number.isNaN(tanggal.getTime()) || tanggal.toISOString().slice(0,10) !== tanggalISO) return null;
+    const hari = tanggal.getUTCDay();
+    const senin = new Date(tanggal);
+    senin.setUTCDate(senin.getUTCDate() - ((hari + 6) % 7));
+    const ahad = new Date(senin);
+    ahad.setUTCDate(ahad.getUTCDate() + 6);
+    return { awal: senin.toISOString().slice(0,10), akhir: ahad.toISOString().slice(0,10) };
+}
+
 window.tampilkanHasilLaporan = async function(){
     const area = document.getElementById("areaHasilLaporan");
     const jenis = document.getElementById("jenisLaporanNav").value;
@@ -1482,9 +1495,10 @@ window.tampilkanHasilLaporan = async function(){
             return;
         }
 
-        // AMBIL DATA ABSENSI
+        // AMBIL DATA ABSENSI: pertahankan koleksi dan format dokumen lama.
         let snapshot;
         let dataAbsensi = [];
+        let periodePekan = null;
 
         if(jenis === "harian"){
             if(!tglTerpilih){
@@ -1494,22 +1508,31 @@ window.tampilkanHasilLaporan = async function(){
             }
             const q = query(collection(db, "absensi"), where("tanggal", "==", tglTerpilih));
             snapshot = await getDocs(q);
-        } else if(jenis === "bulanan" || jenis === "mingguan"){
-            const targetBulan = jenis === "bulanan" ? blnTerpilih : tglTerpilih.substring(0, 7);
-            if(!targetBulan){
-                toast("Pilih tanggal/bulan terlebih dahulu!");
+        } else if(jenis === "bulanan"){
+            if(!blnTerpilih){
+                toast("Pilih bulan terlebih dahulu!");
                 area.innerHTML = "";
                 return;
             }
-            const q = query(collection(db, "absensi"));
-            snapshot = await getDocs(q);
+            snapshot = await getDocs(query(collection(db, "absensi")));
+        } else if(jenis === "mingguan"){
+            periodePekan = rentangPekanISO(tglTerpilih);
+            if(!periodePekan){
+                toast("Pilih tanggal yang valid terlebih dahulu!");
+                area.innerHTML = "";
+                return;
+            }
+            snapshot = await getDocs(query(collection(db, "absensi")));
         }
 
-        snapshot.forEach(doc => {
-            const d = doc.data();
+        snapshot.forEach(item => {
+            const d = item.data();
+            if(typeof d.tanggal !== "string") return;
             if(jenis === "harian" && d.tanggal === tglTerpilih){
                 dataAbsensi.push(d);
-            } else if(jenis !== "harian" && d.tanggal && d.tanggal.startsWith(jenis === "bulanan" ? blnTerpilih : tglTerpilih.substring(0, 7))){
+            } else if(jenis === "bulanan" && d.tanggal.startsWith(blnTerpilih + "-")){
+                dataAbsensi.push(d);
+            } else if(jenis === "mingguan" && d.tanggal >= periodePekan.awal && d.tanggal <= periodePekan.akhir){
                 dataAbsensi.push(d);
             }
         });
@@ -1571,7 +1594,10 @@ window.tampilkanHasilLaporan = async function(){
             area.innerHTML = html;
 
         } else {
-            let html = `
+            const judulPeriode = jenis === "mingguan"
+                ? `<div style="background:#e5f2ef;color:#075E54;padding:12px 14px;border-radius:12px;margin-bottom:12px;font-size:13px;font-weight:bold;">Laporan Pekanan: ${periodePekan.awal} s.d. ${periodePekan.akhir} (Senin–Ahad)</div>`
+                : "";
+            let html = judulPeriode + `
             <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
                 <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:center;">
                     <thead>
