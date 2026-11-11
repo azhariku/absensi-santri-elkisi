@@ -1135,112 +1135,115 @@ window.perbaruiPilihanMapelNilai = async function(){
     muatDataInputNilai();
 };
 
-// FUNGSI INPUT NILAI SANTRI (Diurutkan A-Z)
+// Tahap 5A: gunakan dokumen yang benar-benar ditemukan, bukan membuat duplikat ID.
+let konteksNilaiAktif = null;
+let nomorPermintaanNilai = 0;
+function kunciNilai(kelas, mapel, kategori, ke){
+    return [kelas, mapel, kategori, ke].join("\u001f");
+}
+function escapeNilaiHTML(v){
+    return String(v ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 window.muatDataInputNilai = async function(){
+    const permintaan = ++nomorPermintaanNilai;
+    konteksNilaiAktif = null;
     const kelas = document.getElementById("kelasNilai").value;
     const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
     const kat = document.getElementById("kategoriNilai").value;
-    const ke = document.getElementById("keNilai").value || 1;
-    
+    const keInput = document.getElementById("keNilai").value;
     const area = document.getElementById("areaInputNilai");
     const btnSimpan = document.getElementById("btnSimpanNilai");
-
+    btnSimpan.style.display = "none";
     if(!kelas || !mapel){
-        area.innerHTML = `<div class="loading">Pilih kelas dan isi mata pelajaran terlebih dahulu.</div>`;
-        btnSimpan.style.display = "none";
+        area.innerHTML = '<div class="loading">Pilih kelas dan isi mata pelajaran terlebih dahulu.</div>';
         return;
     }
-
-    const santriAktif = santri.filter(s => s.status !== "nonaktif" && s.kelas === kelas);
-    if(santriAktif.length === 0){
-        area.innerHTML = `<div class="loading">Tidak ada santri aktif di kelas ini.</div>`;
-        btnSimpan.style.display = "none";
+    const ke = (kat === "tugas" || kat === "uh") ? Number(keInput) : 1;
+    if(!Number.isSafeInteger(ke) || ke < 1){
+        area.innerHTML = '<div class="error">Nomor Tugas/UH harus bilangan bulat positif.</div>';
         return;
     }
-
-    // Urutkan nama santri secara Alfabetis A-Z
-    santriAktif.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
-
-    let fieldKey = kat;
-    if(kat === "tugas") fieldKey = `tugas_${ke}`;
-    if(kat === "uh") fieldKey = `uh_${ke}`;
-
-    let existingData = {};
+    const daftar = santri.filter(s => s.status !== "nonaktif" && s.kelas === kelas)
+        .sort((a,b)=>a.nama.localeCompare(b.nama,'id',{sensitivity:'base'}));
+    if(!daftar.length){area.innerHTML='<div class="loading">Tidak ada santri aktif di kelas ini.</div>';return;}
+    area.innerHTML='<div class="loading">Memeriksa nilai yang tersimpan...</div>';
+    const fieldKey = kat === 'tugas' || kat === 'uh' ? `${kat}_${ke}` : kat;
+    const dokumen = new Map();
+    const konflik = new Set();
     try {
-        const q = query(collection(db, "nilai"), where("kelas", "==", kelas), where("mapel", "==", mapel));
-        const snap = await getDocs(q);
+        // Ambil berdasarkan kelas saja supaya data historis dengan kapitalisasi mapel berbeda tetap ditemukan.
+        const snap = await getDocs(query(collection(db,"nilai"),where("kelas","==",kelas)));
+        if(permintaan !== nomorPermintaanNilai) return;
         snap.forEach(d => {
-            const val = d.data();
-            existingData[val.santriId] = val;
+            const data = d.data();
+            if(String(data.mapel || '').trim().toLowerCase() !== mapel || !data.santriId) return;
+            if(dokumen.has(data.santriId)) konflik.add(data.santriId);
+            else dokumen.set(data.santriId, {id:d.id, data});
         });
-    } catch(err) {
-        console.error("Gagal mengambil data nilai:", err);
+    } catch(err){
+        if(permintaan !== nomorPermintaanNilai) return;
+        console.error('Gagal membaca nilai:',err);
+        area.innerHTML='<div class="error">Data nilai gagal dibaca. Penyimpanan dinonaktifkan untuk mencegah duplikasi. Periksa koneksi Firebase lalu coba lagi.</div>';
+        return;
     }
-
-    let html = `<div style="background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead>
-                <tr style="background:#075E54; color:white; text-align:center;">
-                    <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                    <th style="padding:4px; border:1px solid #ddd; width:80px;">Nilai ${kat.toUpperCase()} ${ (kat==='tugas'||kat==='uh') ? ke : '' }</th>
-                </tr>
-            </thead>
-            <tbody>`;
-
-    santriAktif.forEach(s => {
-        const score = (existingData[s.id] && existingData[s.id][fieldKey]) !== undefined && existingData[s.id][fieldKey] !== null ? existingData[s.id][fieldKey] : "";
-        html += `
-        <tr>
-            <td style="padding:8px; border:1px solid #ddd; font-weight:bold;">${s.nama}</td>
-            <td style="padding:4px; border:1px solid #ddd;">
-                <input type="number" min="0" max="100" class="input-field input-score" data-santriid="${s.id}" value="${score}" style="text-align:center; padding:6px;">
-            </td>
-        </tr>`;
+    if(konflik.size){
+        area.innerHTML=`<div class="error">Ditemukan ${konflik.size} santri dengan lebih dari satu dokumen nilai untuk mata pelajaran ini. Penyimpanan dihentikan agar data lama tidak tertimpa. Periksa duplikasi dokumen di Firebase terlebih dahulu.</div>`;
+        return;
+    }
+    let html = `<div class="file-info">Kolom kosong tidak akan menghapus nilai yang sudah tersimpan. Untuk mengubah nilai, isi angka 0–100. Nilai lama tetap dipertahankan.</div><div style="background:white;border-radius:14px;padding:10px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#075E54;color:white"><th style="padding:8px;text-align:left">Nama Santri</th><th style="padding:8px">Nilai ${escapeNilaiHTML(kat.toUpperCase())} ${kat==='tugas'||kat==='uh'?ke:''}</th></tr></thead><tbody>`;
+    daftar.forEach(s => {
+        const rec = dokumen.get(s.id)?.data;
+        const nilai = rec && rec[fieldKey] !== undefined && rec[fieldKey] !== null ? rec[fieldKey] : '';
+        html += `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">${escapeNilaiHTML(s.nama)}</td><td style="padding:4px;border:1px solid #ddd"><input type="number" min="0" max="100" step="any" class="input-field input-score" data-santriid="${escapeNilaiHTML(s.id)}" value="${escapeNilaiHTML(nilai)}" style="text-align:center;padding:6px"></td></tr>`;
     });
-
-    html += `</tbody></table></div>`;
-    area.innerHTML = html;
-    btnSimpan.style.display = "block";
+    area.innerHTML=html+'</tbody></table></div>';
+    konteksNilaiAktif = {kunci:kunciNilai(kelas,mapel,kat,ke),kelas,mapel,fieldKey,dokumen};
+    btnSimpan.style.display='block';
 };
-
 window.simpanSemuaNilai = async function(){
-    const kelas = document.getElementById("kelasNilai").value;
-    const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
-    const kat = document.getElementById("kategoriNilai").value;
-    const ke = document.getElementById("keNilai").value || 1;
-    const inputs = document.querySelectorAll(".input-score");
-
-    if(!kelas || !mapel) return;
-
-    let fieldKey = kat;
-    if(kat === "tugas") fieldKey = `tugas_${ke}`;
-    if(kat === "uh") fieldKey = `uh_${ke}`;
-
-    try {
-        toast("Menyimpan nilai...");
-        const batch = writeBatch(db);
-
-        inputs.forEach(inp => {
-            const santriId = inp.dataset.santriid;
-            const nilaiVal = inp.value !== "" ? Number(inp.value) : null;
-            
-            const docId = `${kelas}_${mapel}_${santriId}`.replace(/\s+/g, '_');
-            const refDoc = doc(db, "nilai", docId);
-
-            batch.set(refDoc, {
-                santriId,
-                kelas,
-                mapel,
-                [fieldKey]: nilaiVal,
-                updatedAt: new Date().toISOString()
-            }, { merge: true });
-        });
-
-        await batch.commit();
-        toast("Semua nilai berhasil disimpan ✓");
-    } catch(err) {
-        toast("Gagal menyimpan nilai: " + err.message);
+    const kelas=document.getElementById('kelasNilai').value;
+    const mapel=document.getElementById('mapelNilai').value.trim().toLowerCase();
+    const kat=document.getElementById('kategoriNilai').value;
+    const ke=(kat==='tugas'||kat==='uh')?Number(document.getElementById('keNilai').value):1;
+    const ctx=konteksNilaiAktif;
+    if(!ctx || ctx.kunci!==kunciNilai(kelas,mapel,kat,ke)){
+        toast('Pilihan berubah. Muat ulang data nilai terlebih dahulu.'); return;
     }
+    const inputs=[...document.querySelectorAll('.input-score')];
+    const perubahan=[];
+    for(const inp of inputs){
+        const raw=inp.value.trim();
+        if(raw==='') continue; // Jangan menghapus nilai lama karena kolom kosong.
+        const angka=Number(raw);
+        if(!Number.isFinite(angka)||angka<0||angka>100){
+            toast('Nilai harus berupa angka 0–100.'); inp.focus(); return;
+        }
+        const sid=inp.dataset.santriid;
+        const lama=ctx.dokumen.get(sid)?.data?.[ctx.fieldKey];
+        if(lama===angka) continue;
+        perubahan.push({sid,angka});
+    }
+    if(!perubahan.length){toast('Tidak ada perubahan nilai untuk disimpan.');return;}
+    const tombol=document.getElementById('btnSimpanNilai');
+    tombol.disabled=true;
+    try {
+        // Firestore batch dibatasi 500 operasi; bagi menjadi kelompok kecil.
+        for(let i=0;i<perubahan.length;i+=400){
+            const batch=writeBatch(db);
+            for(const {sid,angka} of perubahan.slice(i,i+400)){
+                const lama=ctx.dokumen.get(sid);
+                const docId=lama?.id || `${kelas}_${mapel}_${sid}`.replace(/\s+/g,'_');
+                batch.set(doc(db,'nilai',docId),{
+                    santriId:sid,kelas,mapel:lama?.data?.mapel || mapel,
+                    [ctx.fieldKey]:angka,updatedAt:new Date().toISOString()
+                },{merge:true});
+            }
+            await batch.commit();
+        }
+        toast('Perubahan nilai berhasil disimpan ✓');
+        await window.muatDataInputNilai();
+    }catch(err){console.error(err);toast('Gagal menyimpan nilai: '+err.message);}
+    finally{tombol.disabled=false;}
 };
 
 // NAVIGASI KONTROL INPUT LAPORAN
