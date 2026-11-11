@@ -517,6 +517,12 @@ body{
                 </div>
 
                 <div class="form-group">
+                    <label>Tahun Pelajaran & Semester</label>
+                    <select id="periodeNilai" class="input-field" onchange="muatDataInputNilai()"></select>
+                    <div class="file-info">Data lama tanpa periode dapat dilihat lewat pilihan "Arsip lama". Tidak ada migrasi atau penghapusan otomatis.</div>
+                </div>
+
+                <div class="form-group">
                     <label>Komponen Nilai</label>
                     <select id="kategoriNilai" class="input-field" onchange="cekTampilKePilihan(); muatDataInputNilai();">
                         <option value="tugas">Tugas</option>
@@ -568,9 +574,18 @@ body{
                     <input type="month" id="blnLaporanNav" class="input-field">
                 </div>
 
+                <div class="form-group" id="groupPeriodeLaporanNav" style="display:none;">
+                    <label>Tahun Pelajaran & Semester Nilai</label>
+                    <select id="periodeLaporanNav" class="input-field"></select>
+                    <div class="file-info">Arsip lama ditampilkan terpisah dari nilai semester baru.</div>
+                </div>
+
                 <div class="form-group" id="groupMapelNav" style="display:none;">
                     <label>Mata Pelajaran</label>
-                    <input type="text" id="mapelLaporanNav" class="input-field" placeholder="Contoh: Fiqih (Wajib Diisi)">
+                    <select id="mapelLaporanNav" class="input-field" aria-label="Pilih mata pelajaran laporan">
+                        <option value="">Pilih kelas untuk memuat mata pelajaran</option>
+                    </select>
+                    <div class="file-info" id="infoMapelLaporanNav">Daftar mapel berasal dari jadwal dan data nilai yang tersimpan. Pilih kelas agar lebih spesifik.</div>
                 </div>
 
                 <div class="form-group">
@@ -1086,10 +1101,50 @@ window.pindahHalaman = function(halaman){
     }
 };
 
+// Tahap 6A: periode eksplisit, tanpa menebak periode dokumen historis.
+const PERIODE_LEGACY = 'arsip_lama';
+function daftarPeriodeNilai(){
+    const now = new Date();
+    const y = now.getFullYear();
+    const awal = now.getMonth() >= 6 ? y : y - 1;
+    const years = new Set([2025,2026,2027, awal-1, awal, awal+1]);
+    const list = [...years].sort((a,b)=>b-a);
+    return list.flatMap(tahun => [
+        {value:`${tahun}/${tahun+1}|ganjil`, label:`${tahun}/${tahun+1} — Ganjil`},
+        {value:`${tahun}/${tahun+1}|genap`, label:`${tahun}/${tahun+1} — Genap`}
+    ]);
+}
+function defaultPeriodeNilai(){
+    const now=new Date();const y=now.getFullYear();
+    const awal=now.getMonth()>=6?y:y-1;
+    return `${awal}/${awal+1}|${now.getMonth()>=6?'ganjil':'genap'}`;
+}
+function isiPilihanPeriode(id){
+    const el=document.getElementById(id);
+    const sebelumnya=el.value;
+    const opts=daftarPeriodeNilai();
+    el.innerHTML=opts.map(o=>`<option value="${o.value}">${o.label}</option>`).join('')+
+        `<option value="${PERIODE_LEGACY}">Arsip lama (tanpa periode)</option>`;
+    el.value=[...el.options].some(o=>o.value===sebelumnya)?sebelumnya:defaultPeriodeNilai();
+}
+function uraikanPeriode(value){
+    if(value===PERIODE_LEGACY)return {legacy:true};
+    const match=/^(\d{4})\/(\d{4})\|(ganjil|genap)$/.exec(value||'');
+    if(!match||Number(match[2])!==Number(match[1])+1)throw Error('Periode nilai tidak valid.');
+    return {legacy:false,tahunPelajaran:`${match[1]}/${match[2]}`,semester:match[3]};
+}
+function cocokPeriodeNilai(data, periode){
+    if(periode.legacy)return !data.tahunPelajaran && !data.semester;
+    return data.tahunPelajaran===periode.tahunPelajaran && data.semester===periode.semester;
+}
+function kunciPeriodeNilai(periode){return periode.legacy?PERIODE_LEGACY:`${periode.tahunPelajaran}|${periode.semester}`;}
+function labelPeriodeNilai(periode){return periode.legacy?'Arsip lama (tanpa periode)':`${periode.tahunPelajaran} — ${periode.semester==='ganjil'?'Ganjil':'Genap'}`;}
+
 function siapkanHalamanNilai(){
     const selectNilai = document.getElementById("kelasNilai");
     const selectFilter = document.getElementById("filterKelas");
     selectNilai.innerHTML = selectFilter.innerHTML;
+    isiPilihanPeriode('periodeNilai');
     cekTampilKePilihan();
 }
 
@@ -1138,8 +1193,8 @@ window.perbaruiPilihanMapelNilai = async function(){
 // Tahap 5A: gunakan dokumen yang benar-benar ditemukan, bukan membuat duplikat ID.
 let konteksNilaiAktif = null;
 let nomorPermintaanNilai = 0;
-function kunciNilai(kelas, mapel, kategori, ke){
-    return [kelas, mapel, kategori, ke].join("\u001f");
+function kunciNilai(kelas, mapel, kategori, ke, periode){
+    return [kelas, mapel, kategori, ke, kunciPeriodeNilai(periode)].join("\u001f");
 }
 function escapeNilaiHTML(v){
     return String(v ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1150,6 +1205,7 @@ window.muatDataInputNilai = async function(){
     const kelas = document.getElementById("kelasNilai").value;
     const mapel = document.getElementById("mapelNilai").value.trim().toLowerCase();
     const kat = document.getElementById("kategoriNilai").value;
+    const periode = uraikanPeriode(document.getElementById('periodeNilai').value);
     const keInput = document.getElementById("keNilai").value;
     const area = document.getElementById("areaInputNilai");
     const btnSimpan = document.getElementById("btnSimpanNilai");
@@ -1176,7 +1232,7 @@ window.muatDataInputNilai = async function(){
         if(permintaan !== nomorPermintaanNilai) return;
         snap.forEach(d => {
             const data = d.data();
-            if(String(data.mapel || '').trim().toLowerCase() !== mapel || !data.santriId) return;
+            if(String(data.mapel || '').trim().toLowerCase() !== mapel || !data.santriId || !cocokPeriodeNilai(data,periode)) return;
             if(dokumen.has(data.santriId)) konflik.add(data.santriId);
             else dokumen.set(data.santriId, {id:d.id, data});
         });
@@ -1190,14 +1246,14 @@ window.muatDataInputNilai = async function(){
         area.innerHTML=`<div class="error">Ditemukan ${konflik.size} santri dengan lebih dari satu dokumen nilai untuk mata pelajaran ini. Penyimpanan dihentikan agar data lama tidak tertimpa. Periksa duplikasi dokumen di Firebase terlebih dahulu.</div>`;
         return;
     }
-    let html = `<div class="file-info">Kolom kosong tidak akan menghapus nilai yang sudah tersimpan. Untuk mengubah nilai, isi angka 0–100. Nilai lama tetap dipertahankan.</div><div style="background:white;border-radius:14px;padding:10px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#075E54;color:white"><th style="padding:8px;text-align:left">Nama Santri</th><th style="padding:8px">Nilai ${escapeNilaiHTML(kat.toUpperCase())} ${kat==='tugas'||kat==='uh'?ke:''}</th></tr></thead><tbody>`;
+    let html = `<div class="file-info"><strong>Periode: ${escapeNilaiHTML(labelPeriodeNilai(periode))}</strong>. ${periode.legacy?'Arsip lama: hanya nilai yang sudah memiliki dokumen dapat diperbarui. Nilai baru wajib memakai periode semester.':''}</div><div class="file-info">Kolom kosong tidak akan menghapus nilai yang sudah tersimpan. Untuk mengubah nilai, isi angka 0–100. Nilai lama tetap dipertahankan.</div><div style="background:white;border-radius:14px;padding:10px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#075E54;color:white"><th style="padding:8px;text-align:left">Nama Santri</th><th style="padding:8px">Nilai ${escapeNilaiHTML(kat.toUpperCase())} ${kat==='tugas'||kat==='uh'?ke:''}</th></tr></thead><tbody>`;
     daftar.forEach(s => {
         const rec = dokumen.get(s.id)?.data;
         const nilai = rec && rec[fieldKey] !== undefined && rec[fieldKey] !== null ? rec[fieldKey] : '';
         html += `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:bold">${escapeNilaiHTML(s.nama)}</td><td style="padding:4px;border:1px solid #ddd"><input type="number" min="0" max="100" step="any" class="input-field input-score" data-santriid="${escapeNilaiHTML(s.id)}" value="${escapeNilaiHTML(nilai)}" style="text-align:center;padding:6px"></td></tr>`;
     });
     area.innerHTML=html+'</tbody></table></div>';
-    konteksNilaiAktif = {kunci:kunciNilai(kelas,mapel,kat,ke),kelas,mapel,fieldKey,dokumen};
+    konteksNilaiAktif = {kunci:kunciNilai(kelas,mapel,kat,ke,periode),kelas,mapel,fieldKey,dokumen,periode};
     btnSimpan.style.display='block';
 };
 window.simpanSemuaNilai = async function(){
@@ -1206,7 +1262,8 @@ window.simpanSemuaNilai = async function(){
     const kat=document.getElementById('kategoriNilai').value;
     const ke=(kat==='tugas'||kat==='uh')?Number(document.getElementById('keNilai').value):1;
     const ctx=konteksNilaiAktif;
-    if(!ctx || ctx.kunci!==kunciNilai(kelas,mapel,kat,ke)){
+    const periode=uraikanPeriode(document.getElementById('periodeNilai').value);
+    if(!ctx || ctx.kunci!==kunciNilai(kelas,mapel,kat,ke,periode)){
         toast('Pilihan berubah. Muat ulang data nilai terlebih dahulu.'); return;
     }
     const inputs=[...document.querySelectorAll('.input-score')];
@@ -1219,6 +1276,9 @@ window.simpanSemuaNilai = async function(){
             toast('Nilai harus berupa angka 0–100.'); inp.focus(); return;
         }
         const sid=inp.dataset.santriid;
+        if(periode.legacy && !ctx.dokumen.has(sid)){
+            toast('Arsip lama hanya dapat memperbarui dokumen yang sudah ada. Pilih semester untuk nilai baru.');inp.focus();return;
+        }
         const lama=ctx.dokumen.get(sid)?.data?.[ctx.fieldKey];
         if(lama===angka) continue;
         perubahan.push({sid,angka});
@@ -1232,11 +1292,11 @@ window.simpanSemuaNilai = async function(){
             const batch=writeBatch(db);
             for(const {sid,angka} of perubahan.slice(i,i+400)){
                 const lama=ctx.dokumen.get(sid);
-                const docId=lama?.id || `${kelas}_${mapel}_${sid}`.replace(/\s+/g,'_');
-                batch.set(doc(db,'nilai',docId),{
-                    santriId:sid,kelas,mapel:lama?.data?.mapel || mapel,
-                    [ctx.fieldKey]:angka,updatedAt:new Date().toISOString()
-                },{merge:true});
+                const docId=lama?.id || `${kelas}_${mapel}_${sid}_${periode.tahunPelajaran}_${periode.semester}`.replace(/\s+/g,'_');
+                const dataBaru={santriId:sid,kelas,mapel:lama?.data?.mapel || mapel,
+                    [ctx.fieldKey]:angka,updatedAt:new Date().toISOString()};
+                if(!periode.legacy){dataBaru.tahunPelajaran=periode.tahunPelajaran;dataBaru.semester=periode.semester;}
+                batch.set(doc(db,'nilai',docId),dataBaru,{merge:true});
             }
             await batch.commit();
         }
@@ -1246,12 +1306,74 @@ window.simpanSemuaNilai = async function(){
     finally{tombol.disabled=false;}
 };
 
+// Tahap 6B: daftar mata pelajaran laporan berasal dari jadwal dan dokumen nilai.
+// Hanya membaca Firebase; nama mapel lama tidak diubah atau dinormalisasi di database.
+let versiPermintaanMapelLaporan = 0;
+function jadwalUntukKelas(kelas){
+    const nama = String(kelas || '').trim();
+    const alternatif = nama.replace(/\s*Azhari\s*/i,' ').replace(/\s*(Putra|Pa)\s*$/i,' Pa').replace(/\s*(Putri|Pi)\s*$/i,' Pi').trim();
+    return JADWAL_DATA[nama] || JADWAL_DATA[alternatif] || [];
+}
+window.perbaruiPilihanMapelLaporan = async function(){
+    const versi = ++versiPermintaanMapelLaporan;
+    const select = document.getElementById('mapelLaporanNav');
+    const info = document.getElementById('infoMapelLaporanNav');
+    const kelas = document.getElementById('kelasLaporanNav').value;
+    const pilihanLama = select.value;
+    const namaMapel = new Map();
+    const tambah = nama => {
+        const asli = String(nama || '').trim();
+        const kunci = asli.toLocaleLowerCase('id');
+        if(asli && !namaMapel.has(kunci)) namaMapel.set(kunci,asli);
+    };
+    const kelasJadwal = kelas ? [kelas] : Object.keys(JADWAL_DATA);
+    for(const k of kelasJadwal){
+        for(const jam of jadwalUntukKelas(k)){
+            for(const p of Object.values(jam.pelajaran || {})){
+                if(p && p.mapel && !['Apel Pagi','Bela Diri'].includes(p.mapel)) tambah(p.mapel);
+            }
+        }
+    }
+    select.disabled = true;
+    select.innerHTML = '<option value="">Memuat mata pelajaran...</option>';
+    try {
+        const periode = uraikanPeriode(document.getElementById('periodeLaporanNav').value);
+        const q = kelas ? query(collection(db,'nilai'),where('kelas','==',kelas)) : query(collection(db,'nilai'));
+        const snap = await getDocs(q);
+        if(versi !== versiPermintaanMapelLaporan) return;
+        snap.forEach(d=>{
+            const n=d.data();
+            if(cocokPeriodeNilai(n,periode)) tambah(n.mapel);
+        });
+        const daftar = [...namaMapel.values()].sort((a,b)=>a.localeCompare(b,'id',{sensitivity:'base'}));
+        select.replaceChildren();
+        const kosong = document.createElement('option');
+        kosong.value=''; kosong.textContent=daftar.length?'Pilih mata pelajaran':'Belum ada mata pelajaran';
+        select.appendChild(kosong);
+        for(const nama of daftar){
+            const option=document.createElement('option');
+            option.value=nama;option.textContent=nama;
+            select.appendChild(option);
+        }
+        const cocok=[...select.options].find(o=>o.value.toLocaleLowerCase('id')===pilihanLama.toLocaleLowerCase('id'));
+        select.value=cocok?cocok.value:'';
+        info.textContent=`${daftar.length} mata pelajaran tersedia${kelas?' untuk '+kelas:' dari semua kelas'}. Pilih mapel, lalu tekan Tampilkan Rekap Laporan.`;
+    }catch(err){
+        if(versi !== versiPermintaanMapelLaporan)return;
+        select.replaceChildren();
+        const option=document.createElement('option');option.value='';option.textContent='Gagal memuat mapel';select.appendChild(option);
+        info.textContent='Tidak dapat membaca daftar mapel dari Firebase: '+err.message;
+        console.error('Gagal memuat mapel laporan:',err);
+    }finally{if(versi===versiPermintaanMapelLaporan)select.disabled=false;}
+};
+
 // NAVIGASI KONTROL INPUT LAPORAN
 window.sesuaikanInputLaporanNav = function(){
     const jenis = document.getElementById("jenisLaporanNav").value;
     const groupTgl = document.getElementById("groupTanggalNav");
     const groupBln = document.getElementById("groupBulanNav");
     const groupMapel = document.getElementById("groupMapelNav");
+    document.getElementById('groupPeriodeLaporanNav').style.display=jenis==='nilai'?'block':'none';
 
     if(jenis === "bulanan"){
         groupTgl.style.display = "none";
@@ -1261,6 +1383,7 @@ window.sesuaikanInputLaporanNav = function(){
         groupTgl.style.display = "none";
         groupBln.style.display = "none";
         groupMapel.style.display = "block";
+        perbaruiPilihanMapelLaporan();
     } else {
         groupTgl.style.display = "block";
         groupBln.style.display = "none";
@@ -1269,6 +1392,8 @@ window.sesuaikanInputLaporanNav = function(){
 };
 
 function siapkanHalamanLaporan(){
+    isiPilihanPeriode('periodeLaporanNav');
+    window.sesuaikanInputLaporanNav();
     document.getElementById("tglLaporanNav").value = tanggalHariIni;
     const skrg = new Date();
     const formatBulan = skrg.getFullYear() + "-" + String(skrg.getMonth() + 1).padStart(2, '0');
@@ -1277,6 +1402,9 @@ function siapkanHalamanLaporan(){
     const selectLaporan = document.getElementById("kelasLaporanNav");
     const selectFilter = document.getElementById("filterKelas");
     selectLaporan.innerHTML = selectFilter.innerHTML;
+    selectLaporan.addEventListener('change', perbaruiPilihanMapelLaporan);
+    document.getElementById('periodeLaporanNav').addEventListener('change', perbaruiPilihanMapelLaporan);
+    perbaruiPilihanMapelLaporan();
 }
 
 // Bangun kotak daftar santri yang belum melakukan absensi sama sekali
@@ -1418,6 +1546,74 @@ function hitungNilaiBerbobot(komponen, bobot){
     return Math.round(keys.reduce((sum,k)=>sum+(typeof komponen[k]==='number' ? komponen[k]*bobot[k]/100 : 0),0));
 }
 
+// Tahap 6C — Ekspor laporan dari tabel yang telah ditampilkan (tanpa menulis ke Firebase).
+function infoEksporLaporan(){
+    const jenis=document.getElementById('jenisLaporanNav').value;
+    const label={nilai:'Rekap Nilai Per Mata Pelajaran',harian:'Rekap Absensi Harian',mingguan:'Rekap Absensi Pekanan',bulanan:'Rekap Absensi Bulanan'}[jenis]||'Laporan';
+    const kelas=document.getElementById('kelasLaporanNav').value||'Semua Kelas';
+    const periode=jenis==='nilai' ? labelPeriodeNilai(uraikanPeriode(document.getElementById('periodeLaporanNav').value)) :
+        jenis==='bulanan' ? document.getElementById('blnLaporanNav').value :
+        jenis==='mingguan' ? (()=>{const r=rentangPekanISO(document.getElementById('tglLaporanNav').value);return r?r.awal+' s.d. '+r.akhir:'';})() : document.getElementById('tglLaporanNav').value;
+    const mapel=jenis==='nilai' ? document.getElementById('mapelLaporanNav').value : '';
+    return {jenis,label,kelas,periode,mapel};
+}
+function tabelAktifLaporan(){
+    const area=document.getElementById('areaHasilLaporan');
+    if(infoEksporLaporan().jenis==='nilai'){
+        const detail=area.querySelector('#laporanNilaiDetail');
+        return (detail && detail.style.display!=='none' ? detail : area.querySelector('#laporanNilaiRingkas'))?.querySelector('table')||null;
+    }
+    return area.querySelector('table');
+}
+function amanSelCSV(v){
+    let str=String(v??'').replace(/\s+/g,' ').trim();
+    // Lindungi file yang dibuka di Excel dari formula injection.
+    if(/^[=+@\-\t\r]/.test(str)) str="'"+str;
+    return '"'+str.replace(/"/g,'""')+'"';
+}
+function unduhLaporanExcelCSV(){
+    const tabel=tabelAktifLaporan();
+    if(!tabel){toast('Tampilkan laporan terlebih dahulu.');return;}
+    const meta=infoEksporLaporan();
+    const baris=[['PESANTREN INTERNASIONAL AL AZHAR eLKISI'],[meta.label],['Kelas',meta.kelas],['Periode',meta.periode]];
+    if(meta.mapel)baris.push(['Mata Pelajaran',meta.mapel]);
+    baris.push([]);
+    for(const tr of tabel.querySelectorAll('tr')){
+        baris.push([...tr.querySelectorAll('th,td')].map(td=>td.textContent.trim()));
+    }
+    const csv='\uFEFF'+baris.map(row=>row.map(amanSelCSV).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='laporan_elkisi_'+meta.jenis+'_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function cetakLaporanPDF(){
+    const tabel=tabelAktifLaporan();
+    if(!tabel){toast('Tampilkan laporan terlebih dahulu.');return;}
+    const meta=infoEksporLaporan();
+    const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const copy=tabel.cloneNode(true);
+    copy.querySelectorAll('[style]').forEach(el=>el.removeAttribute('style'));
+    const win=window.open('','_blank');
+    if(!win){toast('Izinkan pop-up untuk mencetak laporan.');return;}
+    const html='<!doctype html><html lang="id"><head><meta charset="utf-8"><title>'+escape(meta.label)+'</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#111;font-size:11px}h1{font-size:16px;margin:0;text-align:center}h2{font-size:14px;margin:8px 0;text-align:center}.meta{margin:14px 0;line-height:1.7}table{border-collapse:collapse;width:100%;font-size:10px}th,td{border:1px solid #777;padding:5px;text-align:center;overflow-wrap:anywhere}td:first-child,th:first-child{text-align:left}th{background:#e6efeb!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{break-inside:avoid} .hint{margin-top:12px;color:#555;font-size:10px}@media screen{body{padding:20px}}</style></head><body><h1>PESANTREN INTERNASIONAL AL AZHAR eLKISI</h1><h2>'+escape(meta.label)+'</h2><div class="meta"><b>Kelas:</b> '+escape(meta.kelas)+'<br><b>Periode:</b> '+escape(meta.periode)+(meta.mapel?'<br><b>Mata Pelajaran:</b> '+escape(meta.mapel):'')+'</div>'+copy.outerHTML+'<div class="hint">Dicetak dari aplikasi eLKISI. Periksa kelengkapan data sebelum digunakan sebagai laporan resmi.</div></body></html>';
+    win.document.open();win.document.write(html);win.document.close();
+    win.focus();setTimeout(()=>win.print(),350);
+}
+function pasangEksporLaporan(){
+    const area=document.getElementById('areaHasilLaporan');
+    if(!tabelAktifLaporan() || area.querySelector('#toolbarEksporLaporan'))return;
+    const bar=document.createElement('div');bar.id='toolbarEksporLaporan';
+    bar.style.cssText='display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0';
+    const csv=document.createElement('button');csv.type='button';csv.className='btn-action btn-import';csv.textContent='Unduh Excel (CSV)';csv.addEventListener('click',unduhLaporanExcelCSV);
+    const pdf=document.createElement('button');pdf.type='button';pdf.className='btn-action btn-edit';pdf.textContent='Cetak / Simpan PDF';pdf.addEventListener('click',cetakLaporanPDF);
+    const info=document.createElement('span');info.style.cssText='font-size:11px;color:#52635a';info.textContent='CSV dapat dibuka di Excel. PDF disimpan melalui menu Cetak browser.';
+    bar.append(csv,pdf,info);area.insertBefore(bar,area.firstChild);
+}
+
 window.tampilkanHasilLaporan = async function(){
     const area = document.getElementById("areaHasilLaporan");
     const jenis = document.getElementById("jenisLaporanNav").value;
@@ -1442,10 +1638,11 @@ window.tampilkanHasilLaporan = async function(){
         daftarSantri.sort((a, b) => a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' }));
 
         if(jenis === "nilai"){
+            const periodeLaporan=uraikanPeriode(document.getElementById('periodeLaporanNav').value);
             const mapelTerpilih = document.getElementById("mapelLaporanNav").value.trim().toLowerCase();
             if(!mapelTerpilih){
                 toast("Isi Mata Pelajaran terlebih dahulu!");
-                area.innerHTML = `<div class="loading">Ketik nama mata pelajaran untuk melihat rekap nilai.</div>`;
+                area.innerHTML = `<div class="loading">Pilih mata pelajaran dari daftar untuk melihat rekap nilai.</div>`;
                 return;
             }
             // Laporan hanya membaca Firestore. Tidak ada penulisan atau migrasi dokumen.
@@ -1454,7 +1651,7 @@ window.tampilkanHasilLaporan = async function(){
             const perSantri = new Map();
             snapshot.forEach(d => {
                 const n = d.data();
-                if(!daftarId.has(n.santriId) || String(n.mapel || "").trim().toLowerCase() !== mapelTerpilih) return;
+                if(!daftarId.has(n.santriId) || String(n.mapel || "").trim().toLowerCase() !== mapelTerpilih || !cocokPeriodeNilai(n,periodeLaporan)) return;
                 // Kelas harus cocok agar data santri yang pernah berpindah kelas tidak tercampur.
                 const siswa = daftarSantri.find(s => s.id === n.santriId);
                 if(!siswa || n.kelas !== siswa.kelas) return;
@@ -1472,14 +1669,17 @@ window.tampilkanHasilLaporan = async function(){
             const tugas = [...nomorTugas].sort((a,b)=>a-b);
             const uh = [...nomorUH].sort((a,b)=>a-b);
             const tampil = v => typeof v === 'number' && Number.isFinite(v) ? v : '-';
-            const rata = values => values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : '-';
+            const rata = values => values.length ? values.reduce((a,b)=>a+b,0)/values.length : '-';
+            const tampilanRata = v => typeof v === 'number' ? (Math.round(v*100)/100).toLocaleString('id-ID',{maximumFractionDigits:2}) : '-';
             const kolom = (label, bg='') => `<th style="padding:7px;border:1px solid #ddd;white-space:nowrap;${bg}">${label}</th>`;
             const cell = (v, extra='') => `<td style="padding:7px;border:1px solid #ddd;${extra}">${tampil(v)}</td>`;
             let detailRows='', ringkasRows='', duplikasi=[];
+            const statistikNilai={lengkap:0,belum:0,duplikat:0,tanpaDokumen:0,invalid:0};
             for(const siswa of daftarSantri){
                 const records = perSantri.get(siswa.id) || [];
                 if(records.length > 1){
                     duplikasi.push(siswa.nama);
+                    statistikNilai.duplikat++;
                     // Jangan pilih dokumen secara acak atau gabungkan nilai dari dokumen konflik.
                     const nama = escapeNilaiHTML(siswa.nama);
                     detailRows += `<tr><td style="padding:8px;border:1px solid #ddd;text-align:left">${nama}</td><td colspan="${tugas.length+uh.length+5}" style="padding:8px;border:1px solid #ddd;color:#a00000">Duplikasi dokumen — perlu diperiksa</td></tr>`;
@@ -1487,19 +1687,25 @@ window.tampilkanHasilLaporan = async function(){
                     continue;
                 }
                 const rec = records[0] || {};
+                if(!records.length) statistikNilai.tanpaDokumen++;
                 const vTugas = tugas.map(i => rec[`tugas_${i}`]);
                 const vUH = uh.map(i => rec[`uh_${i}`]);
                 const avgTugas = rata(vTugas.filter(v => typeof v === 'number' && Number.isFinite(v)));
                 const avgUH = rata(vUH.filter(v => typeof v === 'number' && Number.isFinite(v)));
                 const uts = tampil(rec.uts), uas = tampil(rec.uas);
-                const akhir = hitungNilaiBerbobot({tugas:avgTugas,uh:avgUH,uts,uas},bobotNilai);
+                const nilaiKomponen=[...vTugas,...vUH,rec.uts,rec.uas].filter(v=>v!==null && v!==undefined && v!=='');
+                const nilaiInvalid=nilaiKomponen.some(v=>typeof v!=='number' || !Number.isFinite(v) || v<0 || v>100);
+                if(nilaiInvalid) statistikNilai.invalid++;
+                const akhir = nilaiInvalid ? null : hitungNilaiBerbobot({tugas:avgTugas,uh:avgUH,uts,uas},bobotNilai);
+                if(akhir===null) statistikNilai.belum++; else statistikNilai.lengkap++;
                 const nilaiAkhirTampil = akhir === null ? 'Belum Lengkap' : akhir;
                 const nama = escapeNilaiHTML(siswa.nama);
                 const tdNama = `<td style="padding:8px;border:1px solid #ddd;text-align:left;font-weight:bold;white-space:nowrap">${nama}</td>`;
-                ringkasRows += `<tr>${tdNama}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${akhir === null ? '<td style="padding:7px;border:1px solid #ddd;color:#9a5600;font-weight:bold;white-space:nowrap">Belum Lengkap</td>' : cell(nilaiAkhirTampil,'font-weight:bold;background:#e5f2ef')}</tr>`;
-                detailRows += `<tr>${tdNama}${vTugas.map(v=>cell(v)).join('')}${vUH.map(v=>cell(v)).join('')}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${akhir === null ? '<td style="padding:7px;border:1px solid #ddd;color:#9a5600;font-weight:bold;white-space:nowrap">Belum Lengkap</td>' : cell(nilaiAkhirTampil,'font-weight:bold;background:#e5f2ef')}</tr>`;
+                ringkasRows += `<tr>${tdNama}${cell(tampilanRata(avgTugas))}${cell(tampilanRata(avgUH))}${cell(uts)}${cell(uas)}${akhir === null ? '<td style="padding:7px;border:1px solid #ddd;color:#9a5600;font-weight:bold;white-space:nowrap">Belum Lengkap</td>' : cell(nilaiAkhirTampil,'font-weight:bold;background:#e5f2ef')}</tr>`;
+                detailRows += `<tr>${tdNama}${vTugas.map(v=>cell(v)).join('')}${vUH.map(v=>cell(v)).join('')}${cell(tampilanRata(avgTugas))}${cell(tampilanRata(avgUH))}${cell(uts)}${cell(uas)}${akhir === null ? '<td style="padding:7px;border:1px solid #ddd;color:#9a5600;font-weight:bold;white-space:nowrap">Belum Lengkap</td>' : cell(nilaiAkhirTampil,'font-weight:bold;background:#e5f2ef')}</tr>`;
             }
-            const judul = `<div style="font-weight:bold;margin-bottom:8px">Rekap Nilai: ${escapeNilaiHTML(mapelTerpilih)}${kelasTerpilihLaporan ? ' — '+escapeNilaiHTML(kelasTerpilihLaporan) : ' — Semua Kelas'}</div>`;
+            const judul = `<div style="font-weight:bold;margin-bottom:8px">Rekap Nilai (${escapeNilaiHTML(labelPeriodeNilai(periodeLaporan))}): ${escapeNilaiHTML(mapelTerpilih)}${kelasTerpilihLaporan ? ' — '+escapeNilaiHTML(kelasTerpilihLaporan) : ' — Semua Kelas'}</div>`;
+            const kartuStatistik = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin:10px 0 14px">${[['Santri',daftarSantri.length],['Nilai lengkap',statistikNilai.lengkap],['Belum lengkap',statistikNilai.belum],['Tanpa data',statistikNilai.tanpaDokumen],['Dokumen ganda',statistikNilai.duplikat],['Nilai tidak valid',statistikNilai.invalid]].map(([nama,jumlah])=>`<div style="padding:10px;border:1px solid #d9e4de;border-radius:10px;background:#f6faf8"><div style="font-size:11px;color:#53645c">${nama}</div><strong style="font-size:20px">${jumlah}</strong></div>`).join('')}</div>`;
             const warning = duplikasi.length ? `<div class="error" style="margin:0 0 12px">Ditemukan dokumen nilai ganda pada ${duplikasi.length} santri. Nilai santri tersebut tidak dihitung sampai duplikasi diperiksa.</div>` : '';
             const headStyle = 'background:#075E54;color:white';
             const summaryHead = `<tr style="${headStyle}">${kolom('Nama Santri')}${kolom('Rata Tugas')}${kolom('Rata UH')}${kolom('UTS')}${kolom('UAS')}${kolom('Nilai Akhir','background:#0e6231')}</tr>`;
@@ -1509,7 +1715,7 @@ window.tampilkanHasilLaporan = async function(){
                 <div style="display:flex;flex-wrap:wrap;gap:8px">${[['tugas','Tugas'],['uh','UH'],['uts','UTS'],['uas','UAS']].map(([k,n])=>`<label style="font-size:12px;flex:1;min-width:105px">${n} (%)<input type="number" min="0" max="100" step="1" data-bobot-nilai="${k}" value="${bobotNilai[k]}" style="display:block;width:100%;box-sizing:border-box;padding:8px;border:1px solid #aaa;border-radius:8px;margin-top:4px"></label>`).join('')}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px"><button type="button" class="btn-action btn-import" id="btnSimpanBobotNilai">Simpan Bobot & Hitung Ulang</button><button type="button" class="btn-action btn-edit" id="btnResetBobotNilai">Bobot Awal</button><span style="font-size:11px;color:#52635a">Total harus 100%. Pengaturan tersimpan di browser ini, bukan Firebase.</span></div>
                 <div id="pesanBobotNilai" role="status" style="font-size:12px;margin-top:6px"></div></div>`;
-            area.innerHTML = `${judul}${warning}${formBobot}<div class="file-info" style="margin-bottom:10px">T = Tugas; UH = Ulangan Harian. Tanda – berarti belum ada nilai. Nilai akhir menggunakan bobot yang ditetapkan; jika komponen berbobot positif belum dinilai, tampil Belum Lengkap. Geser tabel ke samping pada HP.</div>
+            area.innerHTML = `${judul}${warning}${kartuStatistik}${formBobot}<div class="file-info" style="margin-bottom:10px">T = Tugas; UH = Ulangan Harian. Tanda – berarti belum ada nilai. Rata-rata ditampilkan maksimal 2 desimal, tetapi dihitung dengan presisi penuh sebelum nilai akhir dibulatkan. Nilai akhir menggunakan bobot yang ditetapkan; jika komponen berbobot positif belum dinilai, tampil Belum Lengkap. Geser tabel ke samping pada HP.</div>
                 <div style="display:flex;gap:8px;margin-bottom:10px"><button type="button" class="btn-action btn-import" id="btnRingkasanNilai" aria-pressed="true">Ringkasan</button><button type="button" class="btn-action btn-edit" id="btnDetailNilai" aria-pressed="false">Detail Nilai</button></div>
                 <div id="laporanNilaiRingkas" style="overflow-x:auto;background:white;border-radius:14px;padding:10px"><table style="width:100%;border-collapse:collapse;font-size:11px;text-align:center"><thead>${summaryHead}</thead><tbody>${ringkasRows}</tbody></table></div>
                 <div id="laporanNilaiDetail" style="display:none;overflow-x:auto;background:white;border-radius:14px;padding:10px"><table style="width:100%;border-collapse:collapse;font-size:11px;text-align:center"><thead>${detailHead}</thead><tbody>${detailRows}</tbody></table></div>`;
@@ -1542,6 +1748,7 @@ window.tampilkanHasilLaporan = async function(){
             const btnD = area.querySelector('#btnDetailNilai');
             btnR.addEventListener('click',()=>{ringkas.style.display='block';detail.style.display='none';btnR.setAttribute('aria-pressed','true');btnD.setAttribute('aria-pressed','false');});
             btnD.addEventListener('click',()=>{ringkas.style.display='none';detail.style.display='block';btnR.setAttribute('aria-pressed','false');btnD.setAttribute('aria-pressed','true');});
+            pasangEksporLaporan();
             return;
         }
 
@@ -1642,6 +1849,7 @@ window.tampilkanHasilLaporan = async function(){
             html += buatBoxGuruBelumAbsen(infoGuru);
 
             area.innerHTML = html;
+            pasangEksporLaporan();
 
         } else {
             const judulPeriode = jenis === "mingguan"
@@ -1657,6 +1865,7 @@ window.tampilkanHasilLaporan = async function(){
                             <th style="padding:6px; border:1px solid #ddd; background:#b8860b;">Izin</th>
                             <th style="padding:6px; border:1px solid #ddd; background:#0056b3;">Sakit</th>
                             <th style="padding:6px; border:1px solid #ddd; background:#a00000;">Alpha</th>
+                            <th style="padding:6px; border:1px solid #ddd;">% Hadir*</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -1667,6 +1876,8 @@ window.tampilkanHasilLaporan = async function(){
                 const i = absensix.filter(a => a.status === "izin").length;
                 const sk = absensix.filter(a => a.status === "sakit").length;
                 const a = absensix.filter(a => a.status === "alpha").length;
+                const totalTercatat=h+i+sk+a;
+                const persenHadir=totalTercatat ? (100*h/totalTercatat).toLocaleString('id-ID',{maximumFractionDigits:1})+'%' : '-';
 
                 html += `
                 <tr>
@@ -1675,16 +1886,18 @@ window.tampilkanHasilLaporan = async function(){
                     <td style="padding:6px; border:1px solid #ddd; background:#fff2c9; font-weight:bold;">${i}</td>
                     <td style="padding:6px; border:1px solid #ddd; background:#dcecff; font-weight:bold;">${sk}</td>
                     <td style="padding:6px; border:1px solid #ddd; background:#ffe1e1; font-weight:bold;">${a}</td>
+                    <td style="padding:6px; border:1px solid #ddd; font-weight:bold;">${persenHadir}</td>
                 </tr>`;
             });
 
-            html += `</tbody></table></div>`;
+            html += `</tbody></table></div><div style="font-size:11px;color:#52635a;margin-top:8px">* Persentase hadir = Hadir ÷ (Hadir + Izin + Sakit + Alpha) × 100%, berdasarkan entri absensi yang tercatat. Jam yang belum diabsen tidak termasuk penyebut. Ini bukan persentase terhadap seluruh jadwal pelajaran.</div>`;
 
             // SANTRI YANG BELUM PERNAH DIABSEN SAMA SEKALI SELAMA PERIODE INI
             const belumAbsenPeriode = daftarSantri.filter(s => !dataAbsensi.some(a => a.santriId === s.id));
             html += buatBoxBelumAbsen(belumAbsenPeriode, daftarSantri.length);
 
             area.innerHTML = html;
+            pasangEksporLaporan();
         }
 
     } catch(err) {
