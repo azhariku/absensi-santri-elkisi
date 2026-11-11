@@ -604,6 +604,20 @@ body{
         </section>
     </div>
 
+    <!-- TAHAP 7A/7B: Pengelolaan jadwal -->
+    <div id="pageJadwal" style="display:none;">
+      <section class="section" style="margin-top:0;">
+        <div class="section-title">📅 Kelola Jadwal Pelajaran</div>
+        <div class="summary" style="margin-bottom:12px;">
+          <div class="form-group"><label>Tahun Pelajaran & Semester</label><select id="periodeJadwal" class="input-field"></select></div>
+          <div class="form-group"><label>Kelas</label><select id="kelasJadwal" class="input-field"></select></div>
+          <div class="form-group"><label>Hari</label><select id="hariJadwal" class="input-field"><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Sabtu</option></select></div>
+          <button type="button" class="btn-primary" id="btnMuatJadwal" onclick="muatEditorJadwal()">Tampilkan Jadwal</button>
+          <div class="file-info">Jadwal awal berasal dari HTML. Perubahan disimpan di Firebase khusus semester yang dipilih. Slot kosong tidak menghapus absensi lama. Untuk memakai jadwal pada menu absensi, pilih tanggal dalam semester yang sesuai.</div>
+        </div>
+        <div id="areaJadwal"><div class="loading">Pilih periode, kelas, dan hari.</div></div>
+      </section>
+    </div>
     <div id="errorBox" class="error" style="display:none"></div>
 </main>
 
@@ -612,6 +626,7 @@ body{
     <div class="nav-item" onclick="pindahHalaman('Santri')"><span class="nav-icon">👨‍🎓</span>Santri</div>
     <div class="nav-item" onclick="pindahHalaman('Nilai')"><span class="nav-icon">📝</span>Nilai</div>
     <div class="nav-item" onclick="pindahHalaman('Laporan')"><span class="nav-icon">📊</span>Laporan</div>
+    <div class="nav-item" onclick="pindahHalaman('Jadwal')"><span class="nav-icon">📅</span>Jadwal</div>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -708,6 +723,102 @@ const db = getFirestore(app);
 
 const JADWAL_DATA = {"7 Pa":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Nahwu","guru":"Hidayatullah"},"Rabu":{"mapel":"IPA","guru":"Ustazah Evi"},"Kamis":{"mapel":"Fikih","guru":"Muhammad Syarifuddin"},"Sabtu":{"mapel":"Bahasa Inggris","guru":"Raihan Mufid"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Tauhid & Sirah","guru":"Muhammad Syarifuddin"},"Rabu":{"mapel":"IPA","guru":"Ustazah Evi"},"Kamis":{"mapel":"Tafsir & Hadis","guru":"Very Himawan"},"Sabtu":{"mapel":"Bahasa Inggris","guru":"Raihan Mufid"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Kitabah","guru":"Muhammad Wahid Hasyim"},"Selasa":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Rabu":{"mapel":"Nahwu","guru":"Hidayatullah"},"Kamis":{"mapel":"Tauhid & Sirah","guru":"Muhammad Syarifuddin"},"Sabtu":{"mapel":"Tajwid","guru":"Feri Himawan"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Muhammad Syarifuddin"},"Selasa":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Rabu":{"mapel":"Insya","guru":"Syaikhu Abdul Amin"},"Kamis":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Matematika","guru":"Hamzah Hutama"},"Selasa":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Rabu":{"mapel":"Nahwu","guru":"Hidayatullah"},"Kamis":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Sabtu":{"mapel":"Nahwu","guru":"Hidayatullah"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Matematika","guru":"Hamzah Hutama"},"Selasa":{"mapel":"Tafsir & Hadis","guru":"Very Himawan"},"Rabu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Kamis":{"mapel":"Khot","guru":"Syaikhu Abdul Amin"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Muhammad Syarifuddin"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":null,"Rabu":null,"Kamis":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":null}}],"7 Pi":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"IPA","guru":"Khalisah Fuadah"},"Rabu":{"mapel":"Nahwu","guru":"Hidayatullah"},"Kamis":{"mapel":"Tafsir & Hadis","guru":"Very Himawan"},"Sabtu":{"mapel":"Tauhid & Sirah","guru":"Muhammad Wahid Hasyim"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"IPA","guru":"Khalisah Fuadah"},"Rabu":{"mapel":"Fikih","guru":"Muhammad Syarifuddin"},"Kamis":{"mapel":"Fikih","guru":"Muhammad Syarifuddin"},"Sabtu":{"mapel":"Insya","guru":"Fajar Dewi Aminah"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Bahasa Arab","guru":"Muhammad Syarifuddin"},"Selasa":{"mapel":"Khot","guru":"Syaikhu Abdul Amin"},"Rabu":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Kamis":{"mapel":"Tauhid & Sirah","guru":"Muhammad Wahid Hasyim"},"Sabtu":{"mapel":"Matematika","guru":"Hamzah Hutama"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Kitabah","guru":"Muhammad Wahid Hasyim"},"Selasa":{"mapel":"Tafsir & Hadis","guru":"Very Himawan"},"Rabu":{"mapel":"Nahwu","guru":"Hidayatullah"},"Kamis":{"mapel":"Nahwu","guru":"Hidayatullah"},"Sabtu":{"mapel":"Matematika","guru":"Hamzah Hutama"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Selasa":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Rabu":{"mapel":"Bahasa Inggris","guru":"Raihan Mufid"},"Kamis":{"mapel":"Nahwu","guru":"Hidayatullah"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Tajwid","guru":"Very Himawan"},"Selasa":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Rabu":{"mapel":"Bahasa Inggris","guru":"Raihan Mufid"},"Kamis":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Sabtu":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":null,"Rabu":null,"Kamis":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":null}}],"8 Pa":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"},"Rabu":{"mapel":"Nahwu","guru":"Khafifah Ika Hernida"},"Kamis":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Sabtu":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"},"Rabu":{"mapel":"Nahwu","guru":"Khafifah Ika Hernida"},"Kamis":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Insya","guru":"Sarah Latifah"},"Selasa":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"},"Rabu":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Kamis":{"mapel":"Nahwu","guru":"Khafifah Ika Hernida"},"Sabtu":{"mapel":"Khot","guru":"Syaikhu Abdul Amin"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Sharaf","guru":"Fajar Dewi Aminah"},"Selasa":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"},"Rabu":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Kamis":{"mapel":"Sharaf","guru":"Fajar Dewi Aminah"},"Sabtu":{"mapel":"Tajwid","guru":"Very Himawan"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Selasa":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Rabu":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"},"Kamis":{"mapel":"Matematika","guru":"Khairunnisa"},"Sabtu":{"mapel":"Muthalaah","guru":"Alfin Nadhirah"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Kitabah","guru":"Muhammad Syarifuddin"},"Selasa":{"mapel":"Sharaf","guru":"Fajar Dewi Aminah"},"Rabu":{"mapel":"Nahwu","guru":"Khafifah Ika Hernida"},"Kamis":{"mapel":"Matematika","guru":"Khairunnisa"},"Sabtu":{"mapel":"Muthalaah","guru":"Alfin Nadhirah"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":null,"Rabu":null,"Kamis":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":null}}],"8 Pi":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Muthalaah","guru":"Alfin Nadhirah"},"Rabu":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"},"Kamis":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"},"Sabtu":{"mapel":"Nahwu","guru":"Alfin Nadhirah"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Sharaf","guru":"Fajar Dewi Aminah"},"Rabu":{"mapel":"Tajwid","guru":"Very Himawan"},"Kamis":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"},"Sabtu":{"mapel":"Khot","guru":"Syaikhu Abdul Amin"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Sharaf","guru":"Fajar Dewi Aminah"},"Selasa":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Rabu":{"mapel":"Matematika","guru":"Jumratul Lail Umrah"},"Kamis":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Sabtu":{"mapel":"Kitabah","guru":"Muhammad Syarifuddin"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Selasa":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Rabu":{"mapel":"Matematika","guru":"Jumratul Lail Umrah"},"Kamis":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"},"Sabtu":{"mapel":"Insya","guru":"Muhammad Syarifuddin"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"},"Selasa":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Rabu":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Kamis":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Sabtu":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Muthalaah","guru":"Alfin Nadhirah"},"Selasa":{"mapel":"Fikih","guru":"Nailurrahmah Al-Muwaffaqah"},"Rabu":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Kamis":{"mapel":"Sharaf","guru":"Fajar Dewi Aminah"},"Sabtu":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":null,"Rabu":null,"Kamis":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":null}}],"9 Pa":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Tsaqofah","guru":"Nailurrahmah Al-Muwaffaqah"},"Rabu":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Kamis":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Sabtu":{"mapel":"Khot","guru":"Syaikhu Abdul Amin"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Rabu":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Kamis":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Sabtu":{"mapel":"Nahwu","guru":"Alfin Nadhirah"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Bahasa Inggris","guru":"Miftah Al-Alfain"},"Selasa":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Rabu":{"mapel":"Matematika","guru":"Indah Indrayani"},"Kamis":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"},"Sabtu":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Bahasa Inggris","guru":"Miftah Al-Alfain"},"Selasa":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Rabu":{"mapel":"Matematika","guru":"Indah Indrayani"},"Kamis":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"},"Sabtu":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Selasa":{"mapel":"Bahasa Arab","guru":"Muhammad Syarifuddin"},"Rabu":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Kamis":{"mapel":"Kitabah","guru":"Fajar Dewi Aminah"},"Sabtu":{"mapel":"Insya","guru":"Muhammad Syarifuddin"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Selasa":{"mapel":"Bahasa Arab","guru":"Muhammad Syarifuddin"},"Rabu":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Kamis":{"mapel":"Nahwu","guru":"Alfin Nadhrah"},"Sabtu":{"mapel":"Tajwid","guru":"Very Himawan"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":null,"Rabu":null,"Kamis":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":null}}],"9 Pi":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Rabu":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"},"Kamis":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Sabtu":{"mapel":"Matematika","guru":"Indah Indrayani"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Rabu":{"mapel":"Tsaqofah","guru":"Nailurrahmah Al-Muwaffaqah"},"Kamis":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Sabtu":{"mapel":"Matematika","guru":"Indah Indrayani"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Selasa":{"mapel":"Bahasa Inggris","guru":"Miftah Al-Alfain"},"Rabu":{"mapel":"Khot","guru":"Syaikhu Abdul Amin"},"Kamis":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Sabtu":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Ustazah Istiqamah"},"Selasa":{"mapel":"Bahasa Inggris","guru":"Miftah Al-Alfain"},"Rabu":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Kamis":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Sabtu":{"mapel":"Tafsir & Hadis","guru":"Nailurrahmah Al-Muwaffaqah"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Selasa":{"mapel":"Tajwid","guru":"Very Himawan"},"Rabu":{"mapel":"Tauhid & Sirah","guru":"Fajar Dewi Aminah"},"Kamis":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Muthalaah","guru":"Khafifah Ika Hernida"},"Selasa":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Rabu":{"mapel":"Kitabah","guru":"Fajar Dewi Amna"},"Kamis":{"mapel":"Insya","guru":"Muhammad Syarifuddin"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Muhammad Wahid Hasyim"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":null,"Rabu":null,"Kamis":{"mapel":"Percakapan","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":null}}],"10 Pa":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Sharaf","guru":"Khafifah Ika Hernida"},"Rabu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Kamis":{"mapel":"Tafsir","guru":"Hidayatullah"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Rabu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Kamis":{"mapel":"Adab Nushus","guru":"Achmad Zulkifli"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"},"Selasa":{"mapel":"Tafsir","guru":"Hidayatullah"},"Rabu":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Kamis":{"mapel":"Tauhid","guru":"Ustazah Istiqamah"},"Sabtu":{"mapel":"Matematika","guru":"Indah Indrayani"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"},"Selasa":{"mapel":"Tafsir","guru":"Hidayatullah"},"Rabu":{"mapel":"Adab Nushus","guru":"Achmad Zulkifli"},"Kamis":{"mapel":"Tauhid","guru":"Ustazah Istiqamah"},"Sabtu":{"mapel":"Matematika","guru":"Indah Indrayani"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Tsaqofah","guru":"Lukman"},"Selasa":{"mapel":"Hadis","guru":"Sarah Latifah"},"Rabu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Kamis":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Sabtu":{"mapel":"Balaghah","guru":"Ahmad Sahib Al-Muttaqin"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Tsaqofah","guru":"Lukman"},"Selasa":{"mapel":"Hadis","guru":"Sarah Latifah"},"Rabu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Kamis":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Sabtu":{"mapel":"Balaghah","guru":"Ahmad Sahib Al-Muttaqin"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":null,"Selasa":null,"Rabu":null,"Kamis":null,"Sabtu":null}}],"10 Pi":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Rabu":{"mapel":"Hadis","guru":"Sarah Latifah"},"Kamis":{"mapel":"Tsaqofah","guru":"Muhammad Wahid Hasyim"},"Sabtu":{"mapel":"Tauhid","guru":"Sarah Latifah"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Rabu":{"mapel":"Tsaqofah","guru":"Muhammad Wahid Hasyim"},"Kamis":{"mapel":"Sharaf","guru":"Khafifah Ika Hernida"},"Sabtu":{"mapel":"Tauhid","guru":"Sarah Latifah"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Selasa":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"},"Rabu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Kamis":{"mapel":"Balaghah","guru":"Ahmad Sahib Al-Muttaqin"},"Sabtu":{"mapel":"Tafsir","guru":"Hidayatullah"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Bahasa Arab","guru":"Achmad Zulkifli"},"Selasa":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"},"Rabu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Kamis":{"mapel":"Balaghah","guru":"Ahmad Sahib Al-Muttaqin"},"Sabtu":{"mapel":"Tafsir","guru":"Hidayatullah"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Selasa":{"mapel":"Matematika","guru":"Indah Indrayani"},"Rabu":{"mapel":"Nahwu","guru":"Alfin Nadhrah"},"Kamis":{"mapel":"Adab Nushus","guru":"Achmad Zulkifli"},"Sabtu":{"mapel":"Hadis","guru":"Sarah Latifah"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Selasa":{"mapel":"Matematika","guru":"Indah Indrayani"},"Rabu":{"mapel":"Nahwu","guru":"Alfin Nadhrah"},"Kamis":{"mapel":"Tafsir","guru":"Hidayatullah"},"Sabtu":{"mapel":"Adab Nushus","guru":"Achmad Zulkifli"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":null,"Selasa":null,"Rabu":null,"Kamis":null,"Sabtu":null}}],"11 Pa":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"},"Rabu":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Kamis":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Hidayatullah"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"},"Rabu":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Kamis":{"mapel":"Insya","guru":"Syaikhu Abdul Amin"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Hidayatullah"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Hadis","guru":"Nailurrahmah Al-Muwaffaqah"},"Selasa":{"mapel":"Nahwu","guru":"Sarah Latifah"},"Rabu":{"mapel":"Fikih Dakwah","guru":"Ustaz Anwar Jilan"},"Kamis":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":{"mapel":"Balaghah","guru":"Khafifah Ika Hernida"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":{"mapel":"Nahwu","guru":"Sarah Latifah"},"Rabu":{"mapel":"Fikih Dakwah","guru":"Ustaz Anwar Jilan"},"Kamis":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Sabtu":{"mapel":"Balaghah","guru":"Khafifah Ika Hernida"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Matematika","guru":"Indah Indrayani"},"Selasa":{"mapel":"Bahasa Arab","guru":"Hidayatullah"},"Rabu":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Kamis":{"mapel":"Tauhid","guru":"Ustazah Istiqamah"},"Sabtu":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Matematika","guru":"Indah Indrayani"},"Selasa":{"mapel":"Muthalaah","guru":"Lukman"},"Rabu":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"},"Kamis":{"mapel":"Tauhid","guru":"Ustazah Istiqamah"},"Sabtu":{"mapel":"Bahasa Arab","guru":"Hidayatullah"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":null,"Selasa":null,"Rabu":null,"Kamis":null,"Sabtu":null}}],"11 Pi":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Matematika","guru":"Indah Indrayani"},"Rabu":{"mapel":"Hadis","guru":"Nailurrahmah Al-Muwaffaqah"},"Kamis":{"mapel":"Insya","guru":"Syaikhu Abdul Amin"},"Sabtu":{"mapel":"Balaghah","guru":"Khafifah Ika Hernida"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Matematika","guru":"Indah Indrayani"},"Rabu":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Kamis":{"mapel":"Bahasa Arab","guru":"Hidayatullah"},"Sabtu":{"mapel":"Balaghah","guru":"Khafifah Ika Hernida"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"},"Selasa":{"mapel":"Tauhid","guru":"Ustazah Istiqamah"},"Rabu":{"mapel":"Fikih Dakwah","guru":"Ustaz Anwar Jilan"},"Kamis":{"mapel":"Bahasa Arab","guru":"Hidayatullah"},"Sabtu":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Selasa":{"mapel":"Tauhid","guru":"Ustazah Istiqamah"},"Rabu":{"mapel":"Fikih Dakwah","guru":"Ustaz Anwar Jilan"},"Kamis":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":{"mapel":"Bahasa Inggris","guru":"Arif Setiawan"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Nahwu","guru":"Sarah Latifah"},"Selasa":{"mapel":"Muthalaah","guru":"Lukman"},"Rabu":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"},"Kamis":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Nahwu","guru":"Sarah Latifah"},"Selasa":{"mapel":"Bahasa Arab","guru":"Hidayatullah"},"Rabu":{"mapel":"Bahasa Arab","guru":"Hidayatullah"},"Kamis":{"mapel":"Sharaf","guru":"Sarah Latifah"},"Sabtu":{"mapel":"Fikih","guru":"Dr. Majdi Ali Abdul Majid"}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":null,"Selasa":null,"Rabu":null,"Kamis":null,"Sabtu":null}}],"12 Pa":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Rabu":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Kamis":{"mapel":"Tauhid","guru":"Ahmad Sahib Al-Muttaqin"},"Sabtu":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Rabu":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Kamis":{"mapel":"Tauhid","guru":"Ahmad Sahib Al-Muttaqin"},"Sabtu":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Selasa":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Rabu":{"mapel":"Balaghah","guru":"Achmad Zulkifli"},"Kamis":{"mapel":"Balaghah","guru":"Achmad Zulkifli"},"Sabtu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Hadis","guru":"Sarah Latifah"},"Selasa":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Rabu":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Kamis":{"mapel":"Sharaf","guru":"Alfin Nadhirah"},"Sabtu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"},"Selasa":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Rabu":{"mapel":"Sirah","guru":"Ustaz Adil Mazji"},"Kamis":{"mapel":"Pembelajaran Intensif","guru":null},"Sabtu":{"mapel":"Pembelajaran Intensif","guru":null}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"},"Selasa":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Rabu":{"mapel":"Sirah","guru":"Ustaz Adil Mazji"},"Kamis":{"mapel":"Pembelajaran Intensif","guru":null},"Sabtu":{"mapel":"Pembelajaran Intensif","guru":null}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":null,"Selasa":null,"Rabu":null,"Kamis":null,"Sabtu":null}}],"12 Pi":[{"jp":"JP 1","jam":"07.00–07.45","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Apel Pagi","guru":null},"Rabu":{"mapel":"Apel Pagi","guru":null},"Kamis":{"mapel":"Apel Pagi","guru":null},"Sabtu":{"mapel":"Apel Pagi","guru":null}}},{"jp":"JP 2","jam":"07.45–08.30","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"},"Rabu":{"mapel":"Tauhid","guru":"Ahmad Sahib Al-Muttaqin"},"Kamis":{"mapel":"Balaghah","guru":"Achmad Zulkifli"},"Sabtu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"}}},{"jp":"JP 3","jam":"08.30–09.15","pelajaran":{"Senin":{"mapel":"Bela Diri","guru":null},"Selasa":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"},"Rabu":{"mapel":"Tauhid","guru":"Ahmad Sahib Al-Muttaqin"},"Kamis":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Sabtu":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"}}},{"jp":"Istirahat","jam":"09.15–09.45","keterangan":"ISTIRAHAT"},{"jp":"JP 4","jam":"09.45–10.30","pelajaran":{"Senin":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Selasa":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Rabu":{"mapel":"Tafsir","guru":"Dr. Majdi Ali Abdul Majid"},"Kamis":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"},"Sabtu":{"mapel":"Balaghah","guru":"Achmad Zulkifli"}}},{"jp":"JP 5","jam":"10.30–11.15","pelajaran":{"Senin":{"mapel":"Nahwu","guru":"Alfin Nadhirah"},"Selasa":{"mapel":"Adab Nushus","guru":"Khafifah Ika Hernida"},"Rabu":{"mapel":"Hadis","guru":"Sarah Latifah"},"Kamis":{"mapel":"Matematika","guru":"Gunanta Amin Taqa"},"Sabtu":{"mapel":"Sharaf","guru":"Alfin Nadhrah"}}},{"jp":"Salat/istirahat","jam":"11.15–13.00","keterangan":"SALAT / ISTIRAHAT"},{"jp":"JP 6","jam":"13.00–13.45","pelajaran":{"Senin":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Selasa":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Rabu":{"mapel":"Sirah","guru":"Ustaz Adil Mazji"},"Kamis":{"mapel":"Pembelajaran Intensif","guru":null},"Sabtu":{"mapel":"Pembelajaran Intensif","guru":null}}},{"jp":"JP 7","jam":"13.45–14.30","pelajaran":{"Senin":{"mapel":"Bahasa Inggris","guru":"Arinda"},"Selasa":{"mapel":"Fikih","guru":"Ahmad Sahib Al-Muttaqin"},"Rabu":{"mapel":"Sirah","guru":"Ustaz Adil Mazji"},"Kamis":{"mapel":"Pembelajaran Intensif","guru":null},"Sabtu":{"mapel":"Pembelajaran Intensif","guru":null}}},{"jp":"Jeda","jam":"14.30–15.30","keterangan":"JEDA — TIDAK ADA MAPEL"},{"jp":"JP 8","jam":"15.30–16.15","pelajaran":{"Senin":null,"Selasa":null,"Rabu":null,"Kamis":null,"Sabtu":null}}]};
 
+// Tahap 7B: perubahan jadwal disimpan terpisah per semester.
+// Jadwal HTML tidak dimodifikasi; hanya salinan aktif yang diberi override.
+let jadwalAktif = JSON.parse(JSON.stringify(JADWAL_DATA));
+let kunciPeriodeJadwalAktif = '';
+let versiBacaJadwal = 0;
+const HARI_JADWAL = ['Senin','Selasa','Rabu','Kamis','Sabtu'];
+function periodeDariTanggalJadwal(tanggal){
+    const d = new Date(`${tanggal}T12:00:00`);
+    const y = d.getFullYear(), m = d.getMonth();
+    const awal = m >= 6 ? y : y-1;
+    return `${awal}/${awal+1}|${m >= 6 ? 'ganjil':'genap'}`;
+}
+function idSlotJadwal(periode,kelas,hari,jp){
+    return [periode,kelas,hari,jp].map(encodeURIComponent).join('__');
+}
+function terapkanSlotJadwal(kelas,hari,jp,mapel,guru){
+    const entri = (jadwalAktif[kelas] || []).find(e=>e.jp===`JP ${jp}`);
+    if(!entri) return;
+    if(!entri.pelajaran) entri.pelajaran = {};
+    entri.pelajaran[hari] = mapel ? {mapel,guru: guru || null} : null;
+}
+async function bacaJadwalPeriode(periode){
+    const versi=++versiBacaJadwal;
+    const snap=await getDocs(query(collection(db,'jadwal_pelajaran'),where('periode','==',periode)));
+    if(versi!==versiBacaJadwal) return false;
+    const baru=JSON.parse(JSON.stringify(JADWAL_DATA));
+    jadwalAktif=baru;
+    snap.forEach(d=>{
+        const n=d.data();
+        if(n.periode===periode && Object.prototype.hasOwnProperty.call(jadwalAktif,n.kelas) && HARI_JADWAL.includes(n.hari) && /^[1-9]$/.test(String(n.jp))){
+            terapkanSlotJadwal(n.kelas,n.hari,String(n.jp),n.mapel || '',n.guru || '');
+        }
+    });
+    kunciPeriodeJadwalAktif=periode;
+    return true;
+}
+async function sinkronJadwalTanggal(){
+    const periode=periodeDariTanggalJadwal(tanggalHariIni);
+    if(periode!==kunciPeriodeJadwalAktif) await bacaJadwalPeriode(periode);
+    perbaruiInfoJadwal();
+}
+function inisialisasiEditorJadwal(){
+    const periode=document.getElementById('periodeJadwal');
+    if(!periode.options.length){
+        const tahun = new Date().getFullYear();
+        for(let y=tahun-2;y<=tahun+3;y++) for(const sm of ['ganjil','genap']){
+            const o=document.createElement('option');o.value=`${y}/${y+1}|${sm}`;o.textContent=`${y}/${y+1} — ${sm==='ganjil'?'Ganjil':'Genap'}`;periode.appendChild(o);
+        }
+    }
+    periode.value=periodeDariTanggalJadwal(tanggalHariIni);
+    const kelas=document.getElementById('kelasJadwal');
+    if(!kelas.options.length) Object.keys(JADWAL_DATA).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;kelas.appendChild(o);});
+}
+window.muatEditorJadwal = async function(){
+    const periode=document.getElementById('periodeJadwal').value;
+    const kelas=document.getElementById('kelasJadwal').value;
+    const hari=document.getElementById('hariJadwal').value;
+    const area=document.getElementById('areaJadwal');
+    area.innerHTML='<div class="loading">Memuat jadwal Firebase...</div>';
+    try{
+        const snap=await getDocs(query(collection(db,'jadwal_pelajaran'),where('periode','==',periode),where('kelas','==',kelas)));
+        const overrides=new Map();
+        snap.forEach(d=>{const v=d.data();if(v.hari===hari) overrides.set(String(v.jp),v);});
+        const table=document.createElement('div');
+        for(const e of JADWAL_DATA[kelas]||[]){
+            const jp=(e.jp.match(/^JP (\d+)$/)||[])[1];
+            if(!jp) continue;
+            const override=overrides.get(jp);
+            const slot=override ? override : (e.pelajaran||{})[hari];
+            const card=document.createElement('div');card.className='summary';card.style.marginBottom='10px';
+            const heading=document.createElement('div');heading.style.cssText='font-weight:bold;margin-bottom:8px';heading.textContent=`${e.jp} · ${e.jam}`;card.appendChild(heading);
+            const mapel=document.createElement('input');mapel.className='input-field';mapel.placeholder='Mata pelajaran (kosong = tidak ada mapel)';mapel.value=slot?.mapel||'';mapel.style.marginBottom='7px';card.appendChild(mapel);
+            const guru=document.createElement('input');guru.className='input-field';guru.placeholder='Nama guru (boleh kosong)';guru.value=slot?.guru||'';card.appendChild(guru);
+            const info=document.createElement('div');info.className='file-info';info.textContent=override?'Sumber: Firebase':'Sumber: jadwal bawaan HTML';card.appendChild(info);
+            const simpan=document.createElement('button');simpan.type='button';simpan.className='btn-primary';simpan.textContent='💾 Simpan JP '+jp;
+            simpan.onclick=async()=>{
+                const m=mapel.value.trim(),g=guru.value.trim();
+                if(m.length>150 || g.length>150){toast('Nama mapel/guru terlalu panjang.');return;}
+                if(!confirm(m?`Simpan ${hari} JP ${jp}: ${m} (${kelas}, ${periode})?`:`Kosongkan ${hari} JP ${jp} untuk ${kelas}, ${periode}?`))return;
+                simpan.disabled=true;
+                try{
+                    await setDoc(doc(db,'jadwal_pelajaran',idSlotJadwal(periode,kelas,hari,jp)),{periode,kelas,hari,jp,mapel:m,guru:m?g:'',diperbaruiPada:new Date().toISOString()});
+                    if(periode===periodeDariTanggalJadwal(tanggalHariIni)){
+                        await bacaJadwalPeriode(periode);perbaruiInfoJadwal();
+                    }
+                    toast('Jadwal tersimpan di Firebase ✓');
+                    await window.muatEditorJadwal();
+                }catch(err){console.error(err);toast('Gagal menyimpan jadwal: '+err.message);simpan.disabled=false;}
+            };
+            card.appendChild(simpan);
+            table.appendChild(card);
+        }
+        area.replaceChildren(table);
+    }catch(err){area.textContent='Gagal membaca jadwal Firebase: '+err.message;}
+};
+
 let santri = [];
 let absensiHariIni = {};
 let user = null;
@@ -750,7 +861,7 @@ async function gantiTanggalAbsensi(tanggal){
     document.getElementById('studentList').innerHTML = '<div class="loading">Memuat absensi tanggal terpilih...</div>';
     sedangMemuatTanggal = true;
     aturTombolAbsensi(true);
-    try { await ambilAbsensi(); filterSantri(); hitungStatistik(); perbaruiInfoJadwal(); }
+    try { await ambilAbsensi(); filterSantri(); hitungStatistik(); await sinkronJadwalTanggal(); }
     catch(e){ document.getElementById('studentList').innerHTML = '<div class="error">Gagal memuat absensi tanggal ini. Coba pilih kembali.</div>'; }
     finally { sedangMemuatTanggal = false; aturTombolAbsensi(false); }
 }
@@ -794,7 +905,7 @@ async function mulaiAplikasi(){
         await ambilAbsensi();
         filterSantri();
         hitungStatistik();
-        perbaruiInfoJadwal();
+        await sinkronJadwalTanggal();
     } catch(error){
         tampilError("Terjadi kesalahan: " + error.message);
     }
@@ -840,7 +951,7 @@ async function ambilAbsensi(){
 // JADWAL PELAJARAN (mapel & guru otomatis)
 // ==========================================
 
-// Ubah nama kelas bebas (mis. "7 Azhari Pa") jadi kunci JADWAL_DATA (mis. "7 Pa")
+// Ubah nama kelas bebas (mis. "7 Azhari Pa") jadi kunci jadwalAktif (mis. "7 Pa")
 function normalisasiKunciKelas(kelasStr){
     if(!kelasStr) return null;
     const angka = kelasStr.match(/\d+/);
@@ -878,7 +989,7 @@ function perbaruiInfoJadwal(){
     }
 
     const kunciKelas = normalisasiKunciKelas(kelas);
-    const jadwalKelas = kunciKelas ? JADWAL_DATA[kunciKelas] : null;
+    const jadwalKelas = kunciKelas ? jadwalAktif[kunciKelas] : null;
 
     if(!jadwalKelas){
         box.innerHTML = "📚 Data jadwal untuk kelas ini belum tersedia.";
@@ -1080,6 +1191,7 @@ window.pindahHalaman = function(halaman){
     document.getElementById('pageSantri').style.display = 'none';
     document.getElementById('pageNilai').style.display = 'none';
     document.getElementById('pageLaporan').style.display = 'none';
+    document.getElementById('pageJadwal').style.display = 'none';
 
     if(halaman === 'Beranda'){
         document.getElementById('pageBeranda').style.display = 'block';
@@ -1098,6 +1210,11 @@ window.pindahHalaman = function(halaman){
         document.getElementById('pageLaporan').style.display = 'block';
         navItems[3].classList.add('active');
         siapkanHalamanLaporan();
+    } else if(halaman === 'Jadwal'){
+        document.getElementById('pageJadwal').style.display = 'block';
+        navItems[4].classList.add('active');
+        inisialisasiEditorJadwal();
+        window.muatEditorJadwal();
     }
 };
 
@@ -1173,7 +1290,7 @@ window.perbaruiPilihanMapelNilai = async function(){
     const namaMapel = new Set();
     const normal = v => String(v || "").trim();
     // Nama kelas pada data santri bisa lebih lengkap daripada kunci jadwal.
-    const jadwalKelas = JADWAL_DATA[kelas] || JADWAL_DATA[kelas.replace(/\s*Azhari\s*/i, " ").replace(/\s*(Putra|Pa)\s*$/i, " Pa").replace(/\s*(Putri|Pi)\s*$/i, " Pi").trim()] || [];
+    const jadwalKelas = jadwalAktif[kelas] || jadwalAktif[kelas.replace(/\s*Azhari\s*/i, " ").replace(/\s*(Putra|Pa)\s*$/i, " Pa").replace(/\s*(Putri|Pi)\s*$/i, " Pi").trim()] || [];
     jadwalKelas.forEach(j => Object.values(j.pelajaran || {}).forEach(p => {
         if(p && p.mapel && !["Apel Pagi", "Bela Diri"].includes(p.mapel)) namaMapel.add(normal(p.mapel));
     }));
@@ -1312,7 +1429,7 @@ let versiPermintaanMapelLaporan = 0;
 function jadwalUntukKelas(kelas){
     const nama = String(kelas || '').trim();
     const alternatif = nama.replace(/\s*Azhari\s*/i,' ').replace(/\s*(Putra|Pa)\s*$/i,' Pa').replace(/\s*(Putri|Pi)\s*$/i,' Pi').trim();
-    return JADWAL_DATA[nama] || JADWAL_DATA[alternatif] || [];
+    return jadwalAktif[nama] || jadwalAktif[alternatif] || [];
 }
 window.perbaruiPilihanMapelLaporan = async function(){
     const versi = ++versiPermintaanMapelLaporan;
@@ -1326,7 +1443,7 @@ window.perbaruiPilihanMapelLaporan = async function(){
         const kunci = asli.toLocaleLowerCase('id');
         if(asli && !namaMapel.has(kunci)) namaMapel.set(kunci,asli);
     };
-    const kelasJadwal = kelas ? [kelas] : Object.keys(JADWAL_DATA);
+    const kelasJadwal = kelas ? [kelas] : Object.keys(jadwalAktif);
     for(const k of kelasJadwal){
         for(const jam of jadwalUntukKelas(k)){
             for(const p of Object.values(jam.pelajaran || {})){
@@ -1425,7 +1542,7 @@ function buatBoxBelumAbsen(daftarBelum, totalSantri){
     </div>`;
 }
 
-// Cari guru yang seharusnya mengajar (sesuai JADWAL_DATA) pada tanggal terpilih,
+// Cari guru yang seharusnya mengajar (sesuai jadwalAktif) pada tanggal terpilih,
 // tapi belum ada satupun data absensi tersimpan untuk kelas & jam tersebut.
 function cariGuruBelumAbsen(daftarSantriLaporan, dataAbsensiHarian, tglTerpilih){
     // Kelompokkan santri per kelas
@@ -1447,7 +1564,7 @@ function cariGuruBelumAbsen(daftarSantriLaporan, dataAbsensiHarian, tglTerpilih)
 
     Object.keys(santriPerKelas).sort().forEach(kelasNama => {
         const kunciKelas = normalisasiKunciKelas(kelasNama);
-        const jadwalKelas = kunciKelas ? JADWAL_DATA[kunciKelas] : null;
+        const jadwalKelas = kunciKelas ? jadwalAktif[kunciKelas] : null;
         if(!jadwalKelas) return; // data jadwal kelas ini belum ada
 
         const idSantriKelas = santriPerKelas[kelasNama].map(s => s.id);
