@@ -1426,75 +1426,76 @@ window.tampilkanHasilLaporan = async function(){
 
         if(jenis === "nilai"){
             const mapelTerpilih = document.getElementById("mapelLaporanNav").value.trim().toLowerCase();
-
             if(!mapelTerpilih){
                 toast("Isi Mata Pelajaran terlebih dahulu!");
                 area.innerHTML = `<div class="loading">Ketik nama mata pelajaran untuk melihat rekap nilai.</div>`;
                 return;
             }
-
-            const q = query(collection(db, "nilai"));
-            const snapshot = await getDocs(q);
-            let dataNilai = [];
-            snapshot.forEach(doc => dataNilai.push(doc.data()));
-
-            let html = `
-            <div style="overflow-x:auto; background:white; border-radius:14px; padding:10px; box-shadow:0 3px 12px rgba(0,0,0,.04);">
-                <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-                    <thead>
-                        <tr style="background:#075E54; color:white;">
-                            <th style="padding:8px; border:1px solid #ddd; text-align:left;">Nama Santri</th>
-                            <th style="padding:6px; border:1px solid #ddd;">Rata Tugas</th>
-                            <th style="padding:6px; border:1px solid #ddd;">Rata UH</th>
-                            <th style="padding:6px; border:1px solid #ddd;">UTS</th>
-                            <th style="padding:6px; border:1px solid #ddd;">UAS</th>
-                            <th style="padding:6px; border:1px solid #ddd; background:#0e6231;">Nilai Akhir</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-            daftarSantri.forEach(s => {
-                const rec = dataNilai.find(n => n.santriId === s.id && n.mapel === mapelTerpilih);
-                
-                let avgTugas = "-", avgUH = "-", uts = "-", uas = "-";
-
-                if(rec){
-                    const listTugas = Object.keys(rec)
-                        .filter(k => k.startsWith("tugas_") && typeof rec[k] === "number")
-                        .map(k => rec[k]);
-                    if(listTugas.length > 0){
-                        avgTugas = Math.round(listTugas.reduce((a,b)=>a+b, 0) / listTugas.length);
-                    }
-
-                    const listUH = Object.keys(rec)
-                        .filter(k => k.startsWith("uh_") && typeof rec[k] === "number")
-                        .map(k => rec[k]);
-                    if(listUH.length > 0){
-                        avgUH = Math.round(listUH.reduce((a,b)=>a+b, 0) / listUH.length);
-                    }
-
-                    uts = typeof rec.uts === "number" ? rec.uts : "-";
-                    uas = typeof rec.uas === "number" ? rec.uas : "-";
-                }
-
-                const komponenAkhir = [avgTugas, avgUH, uts, uas].filter(v => typeof v === "number");
-                const nilaiAkhir = komponenAkhir.length > 0 
-                    ? Math.round(komponenAkhir.reduce((a, b) => a + b, 0) / komponenAkhir.length) 
-                    : "-";
-
-                html += `
-                <tr>
-                    <td style="padding:8px; border:1px solid #ddd; text-align:left; font-weight:bold;">${s.nama}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${avgTugas}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${avgUH}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${uts}</td>
-                    <td style="padding:6px; border:1px solid #ddd;">${uas}</td>
-                    <td style="padding:6px; border:1px solid #ddd; font-weight:bold; background:#e5f2ef;">${nilaiAkhir}</td>
-                </tr>`;
+            // Laporan hanya membaca Firestore. Tidak ada penulisan atau migrasi dokumen.
+            const snapshot = await getDocs(query(collection(db, "nilai")));
+            const daftarId = new Set(daftarSantri.map(s => s.id));
+            const perSantri = new Map();
+            snapshot.forEach(d => {
+                const n = d.data();
+                if(!daftarId.has(n.santriId) || String(n.mapel || "").trim().toLowerCase() !== mapelTerpilih) return;
+                // Kelas harus cocok agar data santri yang pernah berpindah kelas tidak tercampur.
+                const siswa = daftarSantri.find(s => s.id === n.santriId);
+                if(!siswa || n.kelas !== siswa.kelas) return;
+                if(!perSantri.has(n.santriId)) perSantri.set(n.santriId, []);
+                perSantri.get(n.santriId).push(n);
             });
-
-            html += `</tbody></table></div>`;
-            area.innerHTML = html;
+            const nomorTugas = new Set(), nomorUH = new Set();
+            for(const records of perSantri.values()) for(const rec of records){
+                for(const k of Object.keys(rec)){
+                    const m = /^(tugas|uh)_([1-9]\d*)$/.exec(k);
+                    if(m){ (m[1] === 'tugas' ? nomorTugas : nomorUH).add(Number(m[2])); }
+                }
+            }
+            const tugas = [...nomorTugas].sort((a,b)=>a-b);
+            const uh = [...nomorUH].sort((a,b)=>a-b);
+            const tampil = v => typeof v === 'number' && Number.isFinite(v) ? v : '-';
+            const rata = values => values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : '-';
+            const kolom = (label, bg='') => `<th style="padding:7px;border:1px solid #ddd;white-space:nowrap;${bg}">${label}</th>`;
+            const cell = (v, extra='') => `<td style="padding:7px;border:1px solid #ddd;${extra}">${tampil(v)}</td>`;
+            let detailRows='', ringkasRows='', duplikasi=[];
+            for(const siswa of daftarSantri){
+                const records = perSantri.get(siswa.id) || [];
+                if(records.length > 1){
+                    duplikasi.push(siswa.nama);
+                    // Jangan pilih dokumen secara acak atau gabungkan nilai dari dokumen konflik.
+                    const nama = escapeNilaiHTML(siswa.nama);
+                    detailRows += `<tr><td style="padding:8px;border:1px solid #ddd;text-align:left">${nama}</td><td colspan="${tugas.length+uh.length+5}" style="padding:8px;border:1px solid #ddd;color:#a00000">Duplikasi dokumen — perlu diperiksa</td></tr>`;
+                    ringkasRows += `<tr><td style="padding:8px;border:1px solid #ddd;text-align:left">${nama}</td><td colspan="5" style="padding:8px;border:1px solid #ddd;color:#a00000">Duplikasi dokumen — perlu diperiksa</td></tr>`;
+                    continue;
+                }
+                const rec = records[0] || {};
+                const vTugas = tugas.map(i => rec[`tugas_${i}`]);
+                const vUH = uh.map(i => rec[`uh_${i}`]);
+                const avgTugas = rata(vTugas.filter(v => typeof v === 'number' && Number.isFinite(v)));
+                const avgUH = rata(vUH.filter(v => typeof v === 'number' && Number.isFinite(v)));
+                const uts = tampil(rec.uts), uas = tampil(rec.uas);
+                const komponen = [avgTugas,avgUH,uts,uas].filter(v => typeof v === 'number');
+                const akhir = rata(komponen);
+                const nama = escapeNilaiHTML(siswa.nama);
+                const tdNama = `<td style="padding:8px;border:1px solid #ddd;text-align:left;font-weight:bold;white-space:nowrap">${nama}</td>`;
+                ringkasRows += `<tr>${tdNama}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${cell(akhir,'font-weight:bold;background:#e5f2ef')}</tr>`;
+                detailRows += `<tr>${tdNama}${vTugas.map(v=>cell(v)).join('')}${vUH.map(v=>cell(v)).join('')}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${cell(akhir,'font-weight:bold;background:#e5f2ef')}</tr>`;
+            }
+            const judul = `<div style="font-weight:bold;margin-bottom:8px">Rekap Nilai: ${escapeNilaiHTML(mapelTerpilih)}${kelasTerpilihLaporan ? ' — '+escapeNilaiHTML(kelasTerpilihLaporan) : ' — Semua Kelas'}</div>`;
+            const warning = duplikasi.length ? `<div class="error" style="margin:0 0 12px">Ditemukan dokumen nilai ganda pada ${duplikasi.length} santri. Nilai santri tersebut tidak dihitung sampai duplikasi diperiksa.</div>` : '';
+            const headStyle = 'background:#075E54;color:white';
+            const summaryHead = `<tr style="${headStyle}">${kolom('Nama Santri')}${kolom('Rata Tugas')}${kolom('Rata UH')}${kolom('UTS')}${kolom('UAS')}${kolom('Nilai Akhir','background:#0e6231')}</tr>`;
+            const detailHead = `<tr style="${headStyle}">${kolom('Nama Santri')}${tugas.map(i=>kolom('T'+i)).join('')}${uh.map(i=>kolom('UH'+i)).join('')}${kolom('Rata Tugas')}${kolom('Rata UH')}${kolom('UTS')}${kolom('UAS')}${kolom('Nilai Akhir','background:#0e6231')}</tr>`;
+            area.innerHTML = `${judul}${warning}<div class="file-info" style="margin-bottom:10px">T = Tugas; UH = Ulangan Harian. Tanda – berarti belum ada nilai. Nilai akhir tetap memakai rumus lama (rata-rata komponen yang tersedia). Geser tabel ke samping pada HP.</div>
+                <div style="display:flex;gap:8px;margin-bottom:10px"><button type="button" class="btn-action btn-import" id="btnRingkasanNilai" aria-pressed="true">Ringkasan</button><button type="button" class="btn-action btn-edit" id="btnDetailNilai" aria-pressed="false">Detail Nilai</button></div>
+                <div id="laporanNilaiRingkas" style="overflow-x:auto;background:white;border-radius:14px;padding:10px"><table style="width:100%;border-collapse:collapse;font-size:11px;text-align:center"><thead>${summaryHead}</thead><tbody>${ringkasRows}</tbody></table></div>
+                <div id="laporanNilaiDetail" style="display:none;overflow-x:auto;background:white;border-radius:14px;padding:10px"><table style="width:100%;border-collapse:collapse;font-size:11px;text-align:center"><thead>${detailHead}</thead><tbody>${detailRows}</tbody></table></div>`;
+            const ringkas = area.querySelector('#laporanNilaiRingkas');
+            const detail = area.querySelector('#laporanNilaiDetail');
+            const btnR = area.querySelector('#btnRingkasanNilai');
+            const btnD = area.querySelector('#btnDetailNilai');
+            btnR.addEventListener('click',()=>{ringkas.style.display='block';detail.style.display='none';btnR.setAttribute('aria-pressed','true');btnD.setAttribute('aria-pressed','false');});
+            btnD.addEventListener('click',()=>{ringkas.style.display='none';detail.style.display='block';btnR.setAttribute('aria-pressed','false');btnD.setAttribute('aria-pressed','true');});
             return;
         }
 
