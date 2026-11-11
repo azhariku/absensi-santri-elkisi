@@ -776,6 +776,36 @@ function inisialisasiEditorJadwal(){
     const kelas=document.getElementById('kelasJadwal');
     if(!kelas.options.length) Object.keys(JADWAL_DATA).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;kelas.appendChild(o);});
 }
+// Pilihan berasal dari seluruh jadwal bawaan dan perubahan yang sudah tersimpan.
+function pilihanMasterJadwal(overrides){
+    const mapel=new Set(),guru=new Set();
+    for(const rows of Object.values(JADWAL_DATA)) for(const row of rows) for(const slot of Object.values(row.pelajaran||{})){
+        if(slot?.mapel)mapel.add(slot.mapel.trim());
+        if(slot?.guru)guru.add(slot.guru.trim());
+    }
+    for(const slot of overrides){
+        if(slot.mapel)mapel.add(String(slot.mapel).trim());
+        if(slot.guru)guru.add(String(slot.guru).trim());
+    }
+    return {mapel:[...mapel].filter(Boolean).sort((a,b)=>a.localeCompare(b,'id')),
+            guru:[...guru].filter(Boolean).sort((a,b)=>a.localeCompare(b,'id'))};
+}
+function dropdownJadwal(daftar,nilai,jenis){
+    const wrap=document.createElement('div');wrap.style.marginBottom='8px';
+    const select=document.createElement('select');select.className='input-field';select.setAttribute('aria-label',jenis);
+    const add=(value,label)=>{const o=document.createElement('option');o.value=value;o.textContent=label;select.appendChild(o);};
+    add('',jenis==='mapel'?'-- Kosong / Tidak ada mapel --':'-- Tanpa guru --');
+    for(const nama of daftar)add(nama,nama);
+    add('__baru__','＋ Tambah '+(jenis==='mapel'?'mata pelajaran':'nama guru')+' baru...');
+    if(nilai && !daftar.includes(nilai))add(nilai,nilai+' (tersimpan)');
+    select.value=nilai||'';
+    const input=document.createElement('input');input.type='text';input.className='input-field';input.maxLength=150;
+    input.placeholder='Ketik '+(jenis==='mapel'?'mata pelajaran':'nama guru')+' baru';
+    input.style.cssText='display:none;margin-top:7px';
+    select.onchange=()=>{input.style.display=select.value==='__baru__'?'block':'none';if(select.value==='__baru__')input.focus();};
+    wrap.append(select,input);
+    return {wrap,getValue:()=>select.value==='__baru__'?input.value.trim():select.value.trim()};
+}
 window.muatEditorJadwal = async function(){
     const periode=document.getElementById('periodeJadwal').value;
     const kelas=document.getElementById('kelasJadwal').value;
@@ -785,7 +815,9 @@ window.muatEditorJadwal = async function(){
     try{
         const snap=await getDocs(query(collection(db,'jadwal_pelajaran'),where('periode','==',periode),where('kelas','==',kelas)));
         const overrides=new Map();
-        snap.forEach(d=>{const v=d.data();if(v.hari===hari) overrides.set(String(v.jp),v);});
+        const seluruhOverride=[];
+        snap.forEach(d=>{const v=d.data();seluruhOverride.push(v);if(v.hari===hari) overrides.set(String(v.jp),v);});
+        const master=pilihanMasterJadwal(seluruhOverride);
         const table=document.createElement('div');
         for(const e of JADWAL_DATA[kelas]||[]){
             const jp=(e.jp.match(/^JP (\d+)$/)||[])[1];
@@ -794,12 +826,15 @@ window.muatEditorJadwal = async function(){
             const slot=override ? override : (e.pelajaran||{})[hari];
             const card=document.createElement('div');card.className='summary';card.style.marginBottom='10px';
             const heading=document.createElement('div');heading.style.cssText='font-weight:bold;margin-bottom:8px';heading.textContent=`${e.jp} · ${e.jam}`;card.appendChild(heading);
-            const mapel=document.createElement('input');mapel.className='input-field';mapel.placeholder='Mata pelajaran (kosong = tidak ada mapel)';mapel.value=slot?.mapel||'';mapel.style.marginBottom='7px';card.appendChild(mapel);
-            const guru=document.createElement('input');guru.className='input-field';guru.placeholder='Nama guru (boleh kosong)';guru.value=slot?.guru||'';card.appendChild(guru);
+            const mapel=dropdownJadwal(master.mapel,slot?.mapel||'','mapel');card.appendChild(mapel.wrap);
+            const guru=dropdownJadwal(master.guru,slot?.guru||'','guru');card.appendChild(guru.wrap);
             const info=document.createElement('div');info.className='file-info';info.textContent=override?'Sumber: Firebase':'Sumber: jadwal bawaan HTML';card.appendChild(info);
             const simpan=document.createElement('button');simpan.type='button';simpan.className='btn-primary';simpan.textContent='💾 Simpan JP '+jp;
             simpan.onclick=async()=>{
-                const m=mapel.value.trim(),g=guru.value.trim();
+                const m=mapel.getValue(),g=guru.getValue();
+                if(!m && g){toast('Pilih mata pelajaran sebelum menentukan guru.');return;}
+                if(!m && (mapel.wrap.querySelector('select').value==='__baru__')){toast('Isi nama mata pelajaran baru.');return;}
+                if(guru.wrap.querySelector('select').value==='__baru__' && !g){toast('Isi nama guru baru atau pilih Tanpa guru.');return;}
                 if(m.length>150 || g.length>150){toast('Nama mapel/guru terlalu panjang.');return;}
                 if(!confirm(m?`Simpan ${hari} JP ${jp}: ${m} (${kelas}, ${periode})?`:`Kosongkan ${hari} JP ${jp} untuk ${kelas}, ${periode}?`))return;
                 simpan.disabled=true;
