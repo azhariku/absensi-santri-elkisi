@@ -1401,6 +1401,23 @@ function rentangPekanISO(tanggalISO){
     return { awal: senin.toISOString().slice(0,10), akhir: ahad.toISOString().slice(0,10) };
 }
 
+// Tahap 5C: bobot laporan disimpan lokal pada browser, tanpa mengubah Firestore.
+const KUNCI_BOBOT_NILAI = 'elkisi_bobot_nilai_5c';
+const BOBOT_NILAI_DEFAULT = { tugas:20, uh:30, uts:20, uas:30 };
+function bacaBobotNilai(){
+    try {
+        const obj = JSON.parse(localStorage.getItem(KUNCI_BOBOT_NILAI) || 'null');
+        if(obj && ['tugas','uh','uts','uas'].every(k => Number.isInteger(obj[k]) && obj[k]>=0 && obj[k]<=100) && Object.values(obj).reduce((a,b)=>a+b,0)===100) return obj;
+    } catch(e) { console.warn('Pengaturan bobot tidak dapat dibaca:',e); }
+    return {...BOBOT_NILAI_DEFAULT};
+}
+function hitungNilaiBerbobot(komponen, bobot){
+    const keys=['tugas','uh','uts','uas'];
+    // Setiap komponen yang berbobot positif wajib memiliki nilai.
+    if(keys.some(k=>bobot[k]>0 && !(typeof komponen[k]==='number' && Number.isFinite(komponen[k])))) return null;
+    return Math.round(keys.reduce((sum,k)=>sum+(typeof komponen[k]==='number' ? komponen[k]*bobot[k]/100 : 0),0));
+}
+
 window.tampilkanHasilLaporan = async function(){
     const area = document.getElementById("areaHasilLaporan");
     const jenis = document.getElementById("jenisLaporanNav").value;
@@ -1444,6 +1461,7 @@ window.tampilkanHasilLaporan = async function(){
                 if(!perSantri.has(n.santriId)) perSantri.set(n.santriId, []);
                 perSantri.get(n.santriId).push(n);
             });
+            const bobotNilai = bacaBobotNilai();
             const nomorTugas = new Set(), nomorUH = new Set();
             for(const records of perSantri.values()) for(const rec of records){
                 for(const k of Object.keys(rec)){
@@ -1474,22 +1492,50 @@ window.tampilkanHasilLaporan = async function(){
                 const avgTugas = rata(vTugas.filter(v => typeof v === 'number' && Number.isFinite(v)));
                 const avgUH = rata(vUH.filter(v => typeof v === 'number' && Number.isFinite(v)));
                 const uts = tampil(rec.uts), uas = tampil(rec.uas);
-                const komponen = [avgTugas,avgUH,uts,uas].filter(v => typeof v === 'number');
-                const akhir = rata(komponen);
+                const akhir = hitungNilaiBerbobot({tugas:avgTugas,uh:avgUH,uts,uas},bobotNilai);
+                const nilaiAkhirTampil = akhir === null ? 'Belum Lengkap' : akhir;
                 const nama = escapeNilaiHTML(siswa.nama);
                 const tdNama = `<td style="padding:8px;border:1px solid #ddd;text-align:left;font-weight:bold;white-space:nowrap">${nama}</td>`;
-                ringkasRows += `<tr>${tdNama}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${cell(akhir,'font-weight:bold;background:#e5f2ef')}</tr>`;
-                detailRows += `<tr>${tdNama}${vTugas.map(v=>cell(v)).join('')}${vUH.map(v=>cell(v)).join('')}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${cell(akhir,'font-weight:bold;background:#e5f2ef')}</tr>`;
+                ringkasRows += `<tr>${tdNama}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${akhir === null ? '<td style="padding:7px;border:1px solid #ddd;color:#9a5600;font-weight:bold;white-space:nowrap">Belum Lengkap</td>' : cell(nilaiAkhirTampil,'font-weight:bold;background:#e5f2ef')}</tr>`;
+                detailRows += `<tr>${tdNama}${vTugas.map(v=>cell(v)).join('')}${vUH.map(v=>cell(v)).join('')}${cell(avgTugas)}${cell(avgUH)}${cell(uts)}${cell(uas)}${akhir === null ? '<td style="padding:7px;border:1px solid #ddd;color:#9a5600;font-weight:bold;white-space:nowrap">Belum Lengkap</td>' : cell(nilaiAkhirTampil,'font-weight:bold;background:#e5f2ef')}</tr>`;
             }
             const judul = `<div style="font-weight:bold;margin-bottom:8px">Rekap Nilai: ${escapeNilaiHTML(mapelTerpilih)}${kelasTerpilihLaporan ? ' — '+escapeNilaiHTML(kelasTerpilihLaporan) : ' — Semua Kelas'}</div>`;
             const warning = duplikasi.length ? `<div class="error" style="margin:0 0 12px">Ditemukan dokumen nilai ganda pada ${duplikasi.length} santri. Nilai santri tersebut tidak dihitung sampai duplikasi diperiksa.</div>` : '';
             const headStyle = 'background:#075E54;color:white';
             const summaryHead = `<tr style="${headStyle}">${kolom('Nama Santri')}${kolom('Rata Tugas')}${kolom('Rata UH')}${kolom('UTS')}${kolom('UAS')}${kolom('Nilai Akhir','background:#0e6231')}</tr>`;
             const detailHead = `<tr style="${headStyle}">${kolom('Nama Santri')}${tugas.map(i=>kolom('T'+i)).join('')}${uh.map(i=>kolom('UH'+i)).join('')}${kolom('Rata Tugas')}${kolom('Rata UH')}${kolom('UTS')}${kolom('UAS')}${kolom('Nilai Akhir','background:#0e6231')}</tr>`;
-            area.innerHTML = `${judul}${warning}<div class="file-info" style="margin-bottom:10px">T = Tugas; UH = Ulangan Harian. Tanda – berarti belum ada nilai. Nilai akhir tetap memakai rumus lama (rata-rata komponen yang tersedia). Geser tabel ke samping pada HP.</div>
+            const formBobot = `<div style="background:#f3f8f5;border:1px solid #c9dfd1;border-radius:12px;padding:12px;margin-bottom:12px">
+                <div style="font-weight:bold;margin-bottom:8px">Pengaturan Bobot Nilai Akhir (Tahap 5C)</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px">${[['tugas','Tugas'],['uh','UH'],['uts','UTS'],['uas','UAS']].map(([k,n])=>`<label style="font-size:12px;flex:1;min-width:105px">${n} (%)<input type="number" min="0" max="100" step="1" data-bobot-nilai="${k}" value="${bobotNilai[k]}" style="display:block;width:100%;box-sizing:border-box;padding:8px;border:1px solid #aaa;border-radius:8px;margin-top:4px"></label>`).join('')}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px"><button type="button" class="btn-action btn-import" id="btnSimpanBobotNilai">Simpan Bobot & Hitung Ulang</button><button type="button" class="btn-action btn-edit" id="btnResetBobotNilai">Bobot Awal</button><span style="font-size:11px;color:#52635a">Total harus 100%. Pengaturan tersimpan di browser ini, bukan Firebase.</span></div>
+                <div id="pesanBobotNilai" role="status" style="font-size:12px;margin-top:6px"></div></div>`;
+            area.innerHTML = `${judul}${warning}${formBobot}<div class="file-info" style="margin-bottom:10px">T = Tugas; UH = Ulangan Harian. Tanda – berarti belum ada nilai. Nilai akhir menggunakan bobot yang ditetapkan; jika komponen berbobot positif belum dinilai, tampil Belum Lengkap. Geser tabel ke samping pada HP.</div>
                 <div style="display:flex;gap:8px;margin-bottom:10px"><button type="button" class="btn-action btn-import" id="btnRingkasanNilai" aria-pressed="true">Ringkasan</button><button type="button" class="btn-action btn-edit" id="btnDetailNilai" aria-pressed="false">Detail Nilai</button></div>
                 <div id="laporanNilaiRingkas" style="overflow-x:auto;background:white;border-radius:14px;padding:10px"><table style="width:100%;border-collapse:collapse;font-size:11px;text-align:center"><thead>${summaryHead}</thead><tbody>${ringkasRows}</tbody></table></div>
                 <div id="laporanNilaiDetail" style="display:none;overflow-x:auto;background:white;border-radius:14px;padding:10px"><table style="width:100%;border-collapse:collapse;font-size:11px;text-align:center"><thead>${detailHead}</thead><tbody>${detailRows}</tbody></table></div>`;
+            const inputBobot = [...area.querySelectorAll('[data-bobot-nilai]')];
+            area.querySelector('#btnSimpanBobotNilai').addEventListener('click',()=>{
+                const bobotBaru={};
+                for(const el of inputBobot){
+                    const raw=el.value.trim();
+                    if(!/^\d+$/.test(raw) || Number(raw)>100){
+                        area.querySelector('#pesanBobotNilai').textContent='Setiap bobot harus bilangan bulat antara 0 dan 100.';
+                        return;
+                    }
+                    bobotBaru[el.dataset.bobotNilai]=Number(raw);
+                }
+                if(Object.values(bobotBaru).reduce((a,b)=>a+b,0)!==100){
+                    area.querySelector('#pesanBobotNilai').textContent='Total bobot harus tepat 100%.';
+                    return;
+                }
+                try { localStorage.setItem(KUNCI_BOBOT_NILAI,JSON.stringify(bobotBaru)); }
+                catch(e){ area.querySelector('#pesanBobotNilai').textContent='Gagal menyimpan pengaturan browser: '+e.message; return; }
+                window.tampilkanHasilLaporan();
+            });
+            area.querySelector('#btnResetBobotNilai').addEventListener('click',()=>{
+                inputBobot.forEach(el=>el.value=BOBOT_NILAI_DEFAULT[el.dataset.bobotNilai]);
+                area.querySelector('#pesanBobotNilai').textContent='Bobot awal diisi. Klik Simpan Bobot & Hitung Ulang untuk menerapkan.';
+            });
             const ringkas = area.querySelector('#laporanNilaiRingkas');
             const detail = area.querySelector('#laporanNilaiDetail');
             const btnR = area.querySelector('#btnRingkasanNilai');
