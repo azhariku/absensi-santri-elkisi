@@ -1166,6 +1166,7 @@ function tampilkanKelolaSantri(keyword = ""){
 window.ubahStatus = async function(santriId, status){
     if(sedangMengubahAbsensi || sedangMemuatTanggal) { toast('Tunggu proses sebelumnya selesai.'); return; }
     sedangMengubahAbsensi = true;
+    aturTombolAbsensi(true);
     const tanggalSimpan = tanggalHariIni;
     const jamSimpan = jamPelajaran;
     try{
@@ -1187,6 +1188,9 @@ window.ubahStatus = async function(santriId, status){
     } catch(error){
         toast("Gagal menyimpan");
         tampilError(error.message);
+    } finally {
+        sedangMengubahAbsensi = false;
+        aturTombolAbsensi(false);
     }
 };
 
@@ -2327,6 +2331,8 @@ document.getElementById("filterKelas").addEventListener("change", function(){
 // 4. Fungsi Pilih Jam Pelajaran (Tombol Horizontal)
 window.pilihJam = async function(nilaiJam, element) {
     if(sedangMengubahAbsensi || sedangMemuatTanggal){ toast('Tunggu proses sebelumnya selesai.'); return; }
+    sedangMemuatTanggal = true;
+    aturTombolAbsensi(true);
     jamPelajaran = nilaiJam;
 
     // Ubah status kelas tombol aktif
@@ -2346,6 +2352,10 @@ window.pilihJam = async function(nilaiJam, element) {
         perbaruiInfoJadwal();
     } catch(err) {
         list.innerHTML = `<div class="error">Gagal memuat absensi. Coba pilih jam kembali.</div>`;
+        tampilError('Gagal memuat absensi: ' + err.message);
+    } finally {
+        sedangMemuatTanggal = false;
+        aturTombolAbsensi(false);
     }
 };
 
